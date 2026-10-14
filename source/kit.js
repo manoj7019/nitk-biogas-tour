@@ -26,14 +26,8 @@ export function hydrolyser(cx,cz,M){
   const st=[];[45,135,225,315].forEach(a=>{const r=THREE.MathUtils.degToRad(a);st.push(boxUV(.07,.75,.07).translate(cx+.66*Math.cos(r),.1+.375,cz+.66*Math.sin(r)),boxUV(.18,.02,.18).translate(cx+.66*Math.cos(r),.11,cz+.66*Math.sin(r)))});
   st.push(placed(new THREE.TorusGeometry(.68,.03,8,48),[cx,.82,cz],[Math.PI/2,0,0]));
   g.add(mesh(merge(st),M.steelDark));
-  // cage ladder on the south face
-  const L=[],lz=cz+R+0.12,top=3.55;
-  [-.2,.2].forEach(o=>L.push(rod([cx+o,.1,lz],[cx+o,top+.9,lz],.018,8)));
-  for(let y=.4;y<top+.1;y+=.3)L.push(rod([cx-.2,y,lz],[cx+.2,y,lz],.012,6));
-  [-.2,.2].forEach(o=>L.push(rod([cx+o,top+.9,lz],[cx+o,top+.9,cz+R-.25],.018,8)));// grab rails over the top
-  for(let y=2.1;y<=top+.8;y+=.45){const t=new THREE.TorusGeometry(.36,.012,6,24,Math.PI);L.push(placed(t,[cx,y,lz+.02],[Math.PI/2,0,0]))}
-  for(const a of [0.25,0.5,0.75].map(f=>f*Math.PI)){const x=cx+.36*Math.cos(a),z=lz+.02+.36*Math.sin(a);L.push(rod([x,2.1,z],[x,top+.8,z],.01,6))}
-  g.add(mesh(merge(L),M.galv));
+  // cage ladder on the south face, topping out at the rim with grab handles onto the roof
+  g.add(cageLadder(cx,cz,R+.035,Math.PI/2,.1,y1,M,{hoopFrom:2.0,off:.12,w:.4,ext:.35,roofY:3.44}));
   return g;
 }
 
@@ -80,20 +74,22 @@ export function balloon(c,rad,mat){
 
 // Cage ladder on a vertical cylinder (centre cx,cz, radius R) at angle a (radians, 0 = +x).
 // Rails stand off the shell on brackets; hoops start at hoopFrom; grab rails bend over the top.
-export function cageLadder(cx,cz,R,a,y0,yTop,M,{hoopFrom=2.2,off=0.18,w=0.42}={}){
+export function cageLadder(cx,cz,R,a,y0,yTop,M,{hoopFrom=2.2,off=0.18,w=0.42,ext=0.35,roofY=yTop+0.05}={}){
+  // Rails rise only a short way above the rim (yTop) and bend over onto the roof as grab handles,
+  // so the climber steps straight off the top rung onto the tank roof.
   const ux=Math.cos(a),uz=Math.sin(a),tx=-uz,tz=ux,L=[];
   const P=(r,t,y)=>[cx+ux*r+tx*t,y,cz+uz*r+tz*t];
-  const rr=R+off;
-  [-w/2,w/2].forEach(t=>L.push(rod(P(rr,t,y0),P(rr,t,yTop+1.0),.02,8)));
-  for(let y=y0+.3;y<yTop+.05;y+=.3)L.push(rod(P(rr,-w/2,y),P(rr,w/2,y),.013,6));
+  const rr=R+off,yt=yTop+ext,rin=R-0.1;
+  [-w/2,w/2].forEach(t=>{L.push(rod(P(rr,t,y0),P(rr,t,yt),.02,8));
+    L.push(rod(P(rr,t,yt),P(rin,t,yt),.02,8));L.push(rod(P(rin,t,yt),P(rin,t,roofY),.02,8));
+    L.push(new THREE.SphereGeometry(.02,8,6).translate(...P(rr,t,yt)),new THREE.SphereGeometry(.02,8,6).translate(...P(rin,t,yt)))});
+  for(let y=y0+.3;y<=yTop+.01;y+=.3)L.push(rod(P(rr,-w/2,y),P(rr,w/2,y),.013,6));
+  L.push(rod(P(rr,-w/2,yTop),P(rr,w/2,yTop),.013,6));                                                  // top rung at rim level
   for(let y=y0+.6;y<yTop;y+=1.2)[-w/2,w/2].forEach(t=>L.push(rod(P(R+.005,t,y),P(rr,t,y),.015,6)));   // brackets to shell
-  [-w/2,w/2].forEach(t=>L.push(rod(P(rr,t,yTop+1.0),P(R-.15,t,yTop+1.0),.02,8)));                   // grab rails over the rim
-  const hr=.36,hc=rr+.36-.02;
-  for(let y=hoopFrom;y<=yTop+.9;y+=.5){
-    // semicircle bulging outward from the ladder plane
-    const arc=[];for(let i=0;i<=16;i++){const th=-Math.PI/2+i/16*Math.PI;arc.push(P(rr+Math.cos(th)*.5,Math.sin(th)*hr,y))}
-    for(let i=0;i<arc.length-1;i++)L.push(rod(arc[i],arc[i+1],.011,6))}
-  for(const th of [-0.9,-0.3,0.3,0.9]){L.push(rod(P(rr+Math.cos(th)*.5,Math.sin(th)*hr,hoopFrom),P(rr+Math.cos(th)*.5,Math.sin(th)*hr,yTop+.9),.009,6))}
+  const hr=.36;const hoops=[];for(let y=hoopFrom;y<=yTop-.05;y+=.5)hoops.push(y);if(hoops.length&&yTop-hoops[hoops.length-1]>.2)hoops.push(yTop);
+  hoops.forEach(y=>{const arc=[];for(let i=0;i<=16;i++){const th=-Math.PI/2+i/16*Math.PI;arc.push(P(rr+Math.cos(th)*.5,Math.sin(th)*hr,y))}
+    for(let i=0;i<arc.length-1;i++)L.push(rod(arc[i],arc[i+1],.011,6))});
+  if(hoops.length)for(const th of [-0.9,-0.3,0.3,0.9])L.push(rod(P(rr+Math.cos(th)*.5,Math.sin(th)*hr,hoops[0]),P(rr+Math.cos(th)*.5,Math.sin(th)*hr,hoops[hoops.length-1]),.009,6));
   return mesh(merge(L),M.galv);
 }
 
@@ -103,6 +99,17 @@ export function vesselBase(cx,cz,R,yJoin,M,shellMat){
   const prof=[[0,yJoin-.2]];for(let i=1;i<=16;i++){const t=i/16;prof.push([R*Math.sin(t*Math.PI/2),yJoin-.2+.2*(1-Math.cos(t*Math.PI/2))])}
   prof.push([R,yJoin+.03]);
   g.add(mesh(lathe(prof,72).translate(cx,0,cz),shellMat));
-  g.add(mesh(lathe([[R-.02,yJoin-.17],[R+.025,yJoin-.17],[R+.025,yJoin-.02],[R-.02,yJoin-.02]],72).translate(cx,0,cz),M.steelDark));
+  g.add(mesh(lathe([[R-.06,yJoin-.19],[R+.03,yJoin-.19],[R+.03,yJoin-.02],[R-.02,yJoin-.02],[R-.06,yJoin-.1]],72).translate(cx,0,cz),M.steelDark));
+  // stand: four I-section legs under the seating ring, base plates, gussets and a braced ring at knee height
+  const st=[],floor=0.1,top=yJoin-.19,lr=R-.06;
+  [45,135,225,315].forEach(d=>{const a=d*Math.PI/180,x=cx+Math.cos(a)*lr,z=cz+Math.sin(a)*lr,h=top-floor;
+    const leg=new THREE.Group();
+    [boxUV(.11,h,.012).translate(0,0,.05),boxUV(.11,h,.012).translate(0,0,-.05),boxUV(.012,h,.1)].forEach(b=>{b.rotateY(-a);b.translate(x,floor+h/2,z);st.push(b)});
+    st.push(boxUV(.2,.016,.2).rotateY(-a).translate(x,floor+.008,z));                 // base plate
+    st.push(boxUV(.16,.012,.16).rotateY(-a).translate(x,top-.006,z));                 // cap plate
+    for(let k=0;k<4;k++)st.push(new THREE.CylinderGeometry(.012,.012,.03,8).translate(x+Math.cos(a+k*Math.PI/2+Math.PI/4)*.075,floor+.03,z+Math.sin(a+k*Math.PI/2+Math.PI/4)*.075));  // anchor bolts
+  });
+  st.push(new THREE.TorusGeometry(lr,.018,8,64).rotateX(Math.PI/2).translate(cx,floor+.18,cz));  // knee ring tying the legs
+  g.add(mesh(merge(st),M.steelDark));
   return g;
 }

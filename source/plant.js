@@ -57,7 +57,8 @@ export function buildPlant(root,scene){
 
   // shredder: drop the raised black stand/plate at its east end (the new hopper + bin tipper replace it)
   // storage vessel: the CAD bottom head is ragged where it meets the stand; cut it and fit a smooth dished head
-  byName[EQUIP.storage.node].traverse(o=>{if(!o.isMesh||!/yellow/.test(o.material.name))return;const g=clipAbove(bakeWorld(o),0.82);
+  byName[EQUIP.storage.node].traverse(o=>{if(o.isMesh&&/black/.test(o.material.name)){o.visible=false;return}   // ragged CAD stand -> clean stand in vesselBase
+    if(!o.isMesh||!/yellow/.test(o.material.name))return;const g=clipAbove(bakeWorld(o),0.82);
     const m=new THREE.Mesh(g,o.material);m.castShadow=m.receiveShadow=true;o.visible=false;o.userData.replacedBy=m});
   const stCut=[];byName[EQUIP.storage.node].traverse(o=>{if(o.userData.replacedBy)stCut.push(o.userData.replacedBy)});
   byName[EQUIP.mixtank.node].traverse(o=>{if(o.isMesh&&/black_paint/.test(o.material.name))o.visible=false});   // dangling CAD stub
@@ -77,7 +78,7 @@ export function buildPlant(root,scene){
   Object.values(byName).forEach(o=>{if(!DECOR.test(o.name))return;o.traverse(mm=>{if(!mm.isMesh)return;
     if(o.name==='label_shredder'||/^label_hydrolyzer/.test(o.name))return;
     const g=bakeWorld(mm);const parts=splitTris(g,c=>{const k=ownerAt(c.x,c.z);if(!k)return null;if(k==='digester'&&(c.y>DIG.cut-0.02||(o.name==='digester_band'&&c.y<DIG.base+0.05)))return null;
-      if(o.name==='gas_bag'&&c.y<1.1)return null;   // the two small bottom balloons -> replaced by one
+      if(o.name==='gas_bag')return null;   // old CAD balloons -> replaced by two matching smooth ones
       return k});
     parts.forEach((pg,k)=>{if(k==='digester'){pg=pg.clone().translate(DIG.decorDX,0,0);if(o.name==='digester_band'){const P=pg.attributes.position;for(let i=0;i<P.count;i++){const y=P.getY(i);P.setX(i,DIG.cx+(P.getX(i)-DIG.cx)*1.022);P.setZ(i,DIG.cz+(P.getZ(i)-DIG.cz)*1.022)}}}decor.push({k,g:pg,mat:mm.material,name:o.name})})});o.visible=false});
 
@@ -113,11 +114,27 @@ export function buildPlant(root,scene){
     dg.add(add(new THREE.CylinderGeometry(R+.12,R+.15,.12,96,1,false).translate(DIG.cx,0.16,DIG.cz),M.concrete,dg));
     // access hatch in the skirt (south-west, clear of the pipes)
     {const a=Math.PI*0.78,hx=DIG.cx+Math.cos(a)*(R+.004),hz=DIG.cz+Math.sin(a)*(R+.004);const h=new THREE.Mesh(new THREE.CylinderGeometry(R+.012,R+.012,.5,24,1,true,Math.PI/2-a-.2,.4),M.lidRim);h.position.set(DIG.cx,0.62,DIG.cz);dg.add(h)}
-    dg.add(cageLadder(DIG.cx,DIG.cz,R,-0.87,0.24,DIG.cut,M,{hoopFrom:2.3}));}
+    dg.add(cageLadder(DIG.cx,DIG.cz,R,-0.87,0.24,DIG.cut,M,{hoopFrom:2.3,ext:.35,roofY:5.915}));}
   groups.storage.proc=vesselBase(EQUIP.storage.to[0],EQUIP.storage.to[1],0.748,0.82,M,mats.yellow_paint);plantG.add(groups.storage.proc);
   {const a=Math.PI/3,cx=EQUIP.storage.to[0],cz=EQUIP.storage.to[1],u=[Math.cos(a),0,Math.sin(a)],P=r=>[cx+u[0]*r,0.95,cz+u[2]*r];   // spare nozzle, blanked off
     groups.storage.proc.add(add(merge([rod(P(.7),P(.86),.03,16),rod(P(.86),P(.885),.06,20)]),M.gasFl,groups.storage.proc))}
-  if(mats.gas_bag)groups.cage.inner.add(balloon([3.165,0.69,0.32],[0.68,0.33,0.46],mats.gas_bag));
+  if(mats.gas_bag){groups.cage.inner.add(balloon([3.165,0.69,0.32],[0.68,0.33,0.46],mats.gas_bag));groups.cage.inner.add(balloon([3.165,1.55,0.32],[0.68,0.33,0.46],mats.gas_bag))}
+  // balloon connections: gas in at the cage top -> upper balloon; upper -> lower balloon; lower balloon -> outlet (G2)
+  {const cg=new THREE.Group();cg.name='cage_hoses';plantG.add(cg);groups.cage.proc=cg;
+    const rub=M.gas,fit=M.gasFl;
+    const hose=(pts,r=.022)=>{const c=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)),false,'centripetal');return add(new THREE.TubeGeometry(c,48,r,12,false),rub,cg)};
+    const nozzle=(p,dir)=>{const d=new THREE.Vector3(...dir).normalize(),P=new THREE.Vector3(...p),q=P.clone().addScaledVector(d,.06);
+      add(merge([rod(P.toArray(),q.toArray(),.028,14),rod(P.toArray(),P.clone().addScaledVector(d,.012).toArray(),.05,18),rod(q.clone().addScaledVector(d,-.015).toArray(),q.toArray(),.034,14)]),fit,cg);return q.toArray()};
+    // inlet: under the cage roof, where G1 comes in
+    const inTop=nozzle([0.8,2.36,-0.728],[0,-1,0]);
+    const upTop=nozzle([0.8,1.86,-0.5],[0,1,0]);
+    hose([inTop,[0.8,2.15,-0.74],[0.8,2.05,-0.55],upTop]);
+    // upper -> lower balloon, down the north side
+    const upN=nozzle([0.98,1.5,-0.965],[0,0,-1]),loN=nozzle([0.98,0.72,-0.94],[0,0,-1]);
+    hose([upN,[0.98,1.4,-1.06],[0.98,1.1,-1.08],[0.98,0.82,-1.06],loN]);
+    // lower balloon -> outlet through the north face (start of G2)
+    const lo2=nozzle([0.6,0.7,-0.94],[0,0,-1]);
+    hose([lo2,[0.55,0.66,-1.03],[0.45,0.57,-1.04],[0.4,0.55,-1.06]]);}
   plantG.updateMatrixWorld(true);
   // map an ORIGINAL-coordinate point of item k to the new world position
   function xf(k,p){const v=new THREE.Vector3(...p);return v.applyMatrix4(groups[k].inner.matrixWorld).toArray()}

@@ -9,6 +9,21 @@ HOW TO OPEN
   View menu (roof, compound wall and trees start hidden so the plant is clear; tick them to show): show or hide the roof and columns, the compound wall and gate, trees and surroundings,
   and the kitchen. "Plant only" hides all four so the equipment and pipework are seen clearly.
 
+WHAT CHANGED IN v11
+  - Ladders on the digester and hydrolysis tank now finish at the tank rim: the top rung is level with the rim and
+    the side rails bend over onto the roof as grab handles (they used to stand about 1 m above the tank).
+  - (v10) Both balloons in the cage are the same smooth, fully inflated shape.
+
+WHAT CHANGED IN v9
+  - Balloon cage: both balloons are now the same smooth, fully inflated shape (same line, same pressure).
+  - Balloon cage: gas hoses now connect the inlet (G1) to the upper balloon, the upper balloon to the lower one,
+    and the lower balloon to the outlet (G2), each with a flanged nozzle on the balloon.
+
+WHAT CHANGED IN v8
+  - Gas storage vessel: the ragged CAD stand is replaced by a clean one: seating ring, four I-section legs on
+    bolted base plates and a tie ring, so the vessel sits squarely on it.
+  - (v7) Roof, compound wall and trees start hidden; kitchen starts shown.
+
 WHAT CHANGED IN v6
   - Hydrolysis tank: the outlet is the black nozzle on the tank roof; the white slurry line to screw pump 2
     runs from it, down the north side of the tank.
