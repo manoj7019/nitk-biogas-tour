@@ -145,6 +145,7 @@ button.lab.zone.on em{color:var(--accent-ink)}
         <button class="tool" id="bVoice" aria-pressed="true">Narration</button>
         <button class="tool" id="bLab" aria-pressed="true">Labels</button>
         <button class="tool" id="bFlow" aria-pressed="true">Flows</button>
+        <button class="tool" id="bReset" title="Back to the overview camera">Reset view</button>
         <div class="viewwrap">
           <button class="tool" id="bView" aria-expanded="false" aria-controls="viewMenu">View &#9662;</button>
           <div class="viewmenu" id="viewMenu" hidden role="group" aria-label="Show or hide parts of the model">
@@ -176,7 +177,7 @@ button.lab.zone.on em{color:var(--accent-ink)}
       <div class="info-io"><div><h4>Comes in</h4><ul id="infoI"></ul></div><div><h4>Goes out</h4><ul id="infoO"></ul></div></div>
       <button class="info-go" id="infoGo"></button>
     </section>
-    <div class="hint">Click equipment for details &middot; drag to orbit &middot; scroll to zoom</div>
+    <div class="hint">Click a part to fly to it &middot; drag: orbit &middot; right-drag / WASD: pan</div>
     <div id="loading">Loading 3D model&hellip;</div>
     <div id="fail" hidden>This device could not start the 3D view. The guide on this page still works.</div>
   </div>
@@ -264,7 +265,8 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!vm.hidden)
 function syncLayer(b){if(scene3d&&scene3d.layer)scene3d.layer(b.dataset.layer,b.checked)}
 boxes.forEach(function(b){b.onchange=function(){syncLayer(b)}});
 function setAll(v){boxes.forEach(function(b){if(b.dataset.layer==="xray")return;b.checked=v;syncLayer(b)})}
-$("vPlant").onclick=function(){setAll(false)};$("vAll").onclick=function(){setAll(true)};
+$("vPlant").onclick=function(){setAll(false)};
+$("bReset").onclick=function(){if(scene3d&&scene3d.resetView)scene3d.resetView()};$("vAll").onclick=function(){setAll(true)};
 
 var scene3d=null,infoKey=null;
 function showInfo(k,d){var I=k&&INFO[k];if(!I){hideInfo();return}infoKey=k;

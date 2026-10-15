@@ -34,7 +34,12 @@ window.build3d=function(opts){
   Object.assign(sun.shadow.camera,{left:-13,right:13,top:13,bottom:-13,near:1,far:60});
   sun.shadow.bias=-4e-4;sun.shadow.normalBias=.03;scene.add(sun);
   const controls=new OrbitControls(camera,canvas);
-  controls.enableDamping=true;controls.maxPolarAngle=Math.PI*.495;controls.minDistance=1.2;controls.maxDistance=45;
+  controls.enableDamping=true;controls.dampingFactor=.08;controls.maxPolarAngle=Math.PI*.62;controls.minDistance=.25;controls.maxDistance=60;
+  controls.zoomToCursor=true;controls.screenSpacePanning=true;controls.panSpeed=1.1;controls.rotateSpeed=.9;
+  controls.listenToKeyEvents&&controls.listenToKeyEvents(window);controls.keyPanSpeed=18;
+  controls.keys={LEFT:'KeyA',UP:'KeyW',RIGHT:'KeyD',BOTTOM:'KeyS'};
+  controls.mouseButtons={LEFT:THREE.MOUSE.ROTATE,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.PAN};
+  controls.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
   let composer=null,gtao=null,outline=null;
   function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();composer&&composer.setSize(w,h)}
   window.addEventListener('resize',resize);
@@ -103,7 +108,14 @@ window.build3d=function(opts){
   let down=null,hoverPending=null,hoverKey=null;
   canvas.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,t:performance.now()}});
   canvas.addEventListener('pointerup',e=>{if(!down)return;const d=Math.hypot(e.clientX-down.x,e.clientY-down.y),dt=performance.now()-down.t;down=null;
-    if(d>6)return;const k=pickAt(e.clientX,e.clientY);select(k);opts.onPick&&opts.onPick(k,k?dims(k):null)});
+    if(d>6)return;const k=pickAt(e.clientX,e.clientY);select(k);if(k)focusOn(k);opts.onPick&&opts.onPick(k,k?dims(k):null)});
+  function focusOn(k){const p=proxies.find(q=>q.userData.key===k);if(!p)return;const b=p.userData.box,c=b.getCenter(new THREE.Vector3()),sz=b.getSize(new THREE.Vector3());
+    const r=Math.max(sz.x,sz.y,sz.z),dir=camera.position.clone().sub(controls.target).normalize();if(dir.y<.25){dir.y=.25;dir.normalize()}
+    const dist=Math.min(14,Math.max(1.4,r*1.5+.9));
+    // the details card covers the left of the view on wide screens: aim a little left so the part sits right of centre
+    if(stage.clientWidth>600){const right=new THREE.Vector3().crossVectors(dir,new THREE.Vector3(0,1,0)).normalize();c.addScaledVector(right,dist*.2)}
+    const pos=c.clone().addScaledVector(dir,dist);
+    flyTo([c.x,c.y,c.z,pos.x,pos.y,pos.z],1100)}
   let lastHover=0;canvas.addEventListener('pointermove',e=>{if(e.buttons||e.pointerType==='touch')return;hoverPending={x:e.clientX,y:e.clientY}});
   canvas.addEventListener('pointerleave',()=>{hoverPending=null;if(hoverKey!==null){hoverKey=null;canvas.style.cursor='';opts.onHover&&opts.onHover(null)}});
   function doHover(){if(!hoverPending)return;const now=performance.now();if(now-lastHover<90)return;lastHover=now;const {x,y}=hoverPending;hoverPending=null;const k=pickAt(x,y);
@@ -122,7 +134,7 @@ window.build3d=function(opts){
   const H={frames:0,fps:0,last:performance.now()};
   function frame(t){requestAnimationFrame(frame);
     if(tween){let k=Math.min(1,(t-tween.t0)/tween.d);k=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;camera.position.lerpVectors(tween.fp,tween.tp,k);controls.target.lerpVectors(tween.ft,tween.tt,k);if(k>=1)tween=null}
-    controls.update();
+    controls.update();if(camera.position.y<-.15){camera.position.y=-.15}
     if(plant&&showFlows)plant.updateFlows(t*.001,camera.position);
     if(plant)plant.updateAmbient(t*.001);
     doHover();
@@ -138,5 +150,6 @@ window.build3d=function(opts){
     flows:v=>{showFlows=v;if(plant){plant.flowObjs.forEach(o=>o.visible=v);if(!v)plant.restTipper()}},
     select, dims,
     labels:v=>{showLabels=v},
-    layer:setLayer, layers:()=>Object.assign({},layerState)};
+    layer:setLayer, layers:()=>Object.assign({},layerState),
+    resetView:()=>flyTo(STOPS[0].cam,1200)};
 };

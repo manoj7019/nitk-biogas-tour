@@ -4,10 +4,17 @@ NITK Food Waste to Biogas Plant - interactive 3D tour
 HOW TO OPEN
   Unzip, then double-click index.html (Chrome / Edge / Firefox). Works offline.
   Click (or tap) any equipment to see what it is, its size, what goes in and out, and a button to jump to its tour stop.
-  Drag to orbit, right-drag to pan, scroll to zoom. Numbered buttons jump to stops; "Play tour" runs the narrated tour.
+  Click any part to fly the camera to it. Drag to orbit, right-drag (or W/A/S/D) to pan, scroll to zoom toward
+  the cursor; you can get much closer (25 cm) and look up from a low angle. "Reset view" returns to the overview. Numbered buttons jump to stops; "Play tour" runs the narrated tour.
   Toggles: Narration (voice), Labels (equipment tags), Flows (animated flow arrows).
   View menu (roof, compound wall and trees start hidden so the plant is clear; tick them to show): show or hide the roof and columns, the compound wall and gate, trees and surroundings,
   and the kitchen. "Plant only" hides all four so the equipment and pipework are seen clearly.
+
+WHAT CHANGED IN v19
+  - Scrubbers: biogas enters each scrubber low on the side of the cylinder and leaves from the top
+    (digester -> moisture scrubber bottom, top -> H2S scrubber bottom, top -> valve box).
+  - Camera: click a part to fly to it; zoom toward the cursor; closer zoom, lower viewing angles; W/A/S/D panning;
+    Reset view button.
 
 WHAT CHANGED IN v18
   - Biogas train re-routed to the real process: digester -> moisture scrubber -> H2S scrubber -> automatic

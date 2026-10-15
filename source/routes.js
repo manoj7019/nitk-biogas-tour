@@ -20,9 +20,9 @@ export const ROUTES=({DIG})=>{
   // ---- biogas (yellow steel): digester -> moisture scrubber -> H2S scrubber -> automatic valve box
   //      -> twin balloons (production / flow measurement) -> valve box -> filter -> compressor -> storage
   //      -> kitchen; valve box -> flare when the storage vessel is full
-  {id:'G1',a:null,b:'h2o',medium:'gas',from:'Digester gas outlet (top of the side wall)',to:'Moisture scrubber inlet',pts:[[DIG.cx+1.73,DIG.cut-.16,DIG.cz],[-0.3,DIG.cut-.16,DIG.cz],[-0.3,1.45,DIG.cz],[-0.3,1.45,-2.75],[0.25,1.45,-2.75],[0.25,1.2,-2.75]]},
-  {id:'G2',a:'h2o',b:'h2s',medium:'gas',from:'Moisture scrubber outlet',to:'H2S scrubber inlet',pts:[[0.25,1.2,-2.75],[0.25,1.5,-2.75],[0.9,1.5,-2.75],[0.9,1.2,-2.75]]},
-  {id:'G3',a:'h2s',b:'valve',medium:'gas',from:'H2S scrubber outlet',to:'Automatic valve box (gas in)',pts:[[1.18,0.5,-2.75],[1.3,0.5,-2.75],[1.3,0.5,-2.05],[1.6,0.5,-2.05]]},
+  {id:'G1',a:null,b:'h2o',medium:'gas',from:'Digester gas outlet (top of the side wall)',to:'Moisture scrubber inlet (bottom side)',pts:[[DIG.cx+1.73,DIG.cut-.16,DIG.cz],[-0.3,DIG.cut-.16,DIG.cz],[-0.3,0.45,DIG.cz],[-0.3,0.45,-2.75],[0.25,0.45,-2.75]]},
+  {id:'G2',a:'h2o',b:'h2s',medium:'gas',from:'Moisture scrubber outlet (top)',to:'H2S scrubber inlet (bottom side)',pts:[[0.25,1.2,-2.75],[0.25,1.45,-2.75],[0.575,1.45,-2.75],[0.575,0.45,-2.75],[0.9,0.45,-2.75]]},
+  {id:'G3',a:'h2s',b:'valve',medium:'gas',from:'H2S scrubber outlet (top)',to:'Automatic valve box (gas in)',pts:[[0.9,1.2,-2.75],[0.9,1.45,-2.75],[1.3,1.45,-2.75],[1.3,1.45,-2.05],[1.3,0.5,-2.05],[1.6,0.5,-2.05]]},
   {id:'B1',a:'valve',b:null,medium:'gas',from:'Automatic valve box',to:'Balloon 1 (upper)',pts:[[1.6,0.9,-1.3],[1.3,0.9,-1.3],[1.3,1.5,-1.3],[0.98,1.5,-1.3],[0.98,1.5,-1.17]]},
   {id:'B2',a:null,b:'valve',medium:'gas',from:'Balloon 2 (lower)',to:'Automatic valve box',pts:[[0.98,0.72,-1.17],[0.98,0.72,-1.55],[1.6,0.72,-1.55]]},
   {id:'G4',a:'valve',b:'filter',medium:'gas',from:'Automatic valve box (to compressor)',to:'Gas filter inlet',pts:[[1.74,0.35,-1.6],[2.06,0.35,-1.6]]},
