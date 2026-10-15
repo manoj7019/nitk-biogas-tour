@@ -9,6 +9,48 @@ HOW TO OPEN
   View menu (roof, compound wall and trees start hidden so the plant is clear; tick them to show): show or hide the roof and columns, the compound wall and gate, trees and surroundings,
   and the kitchen. "Plant only" hides all four so the equipment and pipework are seen clearly.
 
+WHAT CHANGED IN v17
+  - Cable tray: slimmer rails, rungs and posts, drawn see-through so the equipment below stays visible.
+
+WHAT CHANGED IN v16
+  - Cables: thinner conduits (16 mm) that drop from the tray straight onto each terminal box (shredder motor,
+    both screw pumps, compressor, panels, heater junction box, agitator motor) and end in a cable gland.
+  - Bin tipper: 3.4 m mast with a carriage; the bin is lifted until its front rim clears the table lip and then
+    tips about that rim, so it never passes through the segregation table.
+  - Digester gas outlet moved to the top of the side wall; the gas line to the balloon cage starts there.
+
+WHAT CHANGED IN v15
+  - Waste can no longer be seen through the hopper or table from outside: every piece and the waste mass are
+    clamped inside the funnel walls, table top and bin walls; animated pieces never drop below a surface.
+
+WHAT CHANGED IN v14
+  - Food waste is now simulated as settled solid piles: each chunk is dropped onto the table, hopper or bin,
+    rests on what is under it, rolls downhill until it reaches the angle of repose, and stays inside the
+    walls. A dense wet mass fills the gaps, so piles look solid and nothing pokes through the table.
+  - The hopper pile follows the funnel walls down into the mill throat.
+  - Falling waste from the tipper drops under gravity and lands on the pile; waste pushed along the table
+    rides on the pile surface and drops into the hopper.
+
+WHAT CHANGED IN v13
+  - Waste reception rebuilt: the hammer-mill hopper is built into the end of a stainless segregation table.
+    The bin tipper empties bins onto the table; operators on a raised platform (steps, handrail, reject crate)
+    sort the waste and push it along the table into the hopper. Animated: bin lift and tip, waste falling
+    onto the table, waste moving along the table and dropping into the hopper.
+  - Wheelie bins now have real depth (wall thickness, dark interior, floor, rolled rim) and are overfilled
+    with waste; the table and hopper are heaped full.
+  - Narration for the overview and stop 1 re-recorded to match.
+
+WHAT CHANGED IN v12
+  - Digester: described simply as a temperature controlled digester (material and weight removed); polished
+    silver steel skin; gas outlet moved to the side of the roof; top-entry agitator at the exact centre of the roof.
+  - Heating system: electric heater tub on the digester shell at 3/4 of its height, with heating elements
+    reaching inside and a temperature sensor beside it.
+  - View menu: "See inside the digester" makes the shell glassy to show the agitator shaft, impellers and heaters.
+  - Cable tray (from the GPS electrical layout): overhead ladder tray from the panels with conduits to the shredder,
+    both pumps, the compressor, the heater and the agitator.
+  - Narration re-recorded for every stop so the audio matches the on-screen text; "hydrolysis" is now
+    pronounced hy-DROL-uh-sis.
+
 WHAT CHANGED IN v11
   - Ladders on the digester and hydrolysis tank now finish at the tank rim: the top rung is level with the rim and
     the side rails bend over onto the roof as grab handles (they used to stand about 1 m above the tank).

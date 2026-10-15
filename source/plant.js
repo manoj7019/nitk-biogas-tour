@@ -4,6 +4,7 @@ import {bakeWorld,filterTris,clipBelow,clipAbove,splitTris,boxUV,merge,placed,ro
 import {pipeRun,valveAt,supports,flowRider} from './pipes.js';
 import {ROUTES,VALVES,WASTE_FLOOR,MEDIA} from './routes.js';
 import {hydrolyser,shredder,balloon,cageLadder,vesselBase} from './kit.js';
+import {settlePile,massMesh,chunkMeshes,chunkGeo,wasteMats,makeRng,WASTE_COLS,containMeshes} from './piles.js';
 
 // Old GLB pipework, fittings and structures that are replaced by geometry built here.
 const HIDE=/^(wall|plinth|S1_shredder_mixtank|flange|valve_body\.?\d*|pipe_support|D1_digester_digestate|G1_digester_cage|G6_compressor_storage_hose|sorting_table_grate)$/;
@@ -23,7 +24,7 @@ export function buildPlant(root,scene){
     concrete:tiled('concrete',0.55), brick:tiled('brick',1.0), grate:tiled('grate',3),
     galv:new THREE.MeshStandardMaterial({color:0x9aa1a8,metalness:.85,roughness:.38}),
     steelDark:new THREE.MeshStandardMaterial({color:0x2c3136,metalness:.5,roughness:.45}),
-    lid:new THREE.MeshStandardMaterial({color:0x48525a,metalness:.45,roughness:.5}),
+    lid:new THREE.MeshStandardMaterial({color:0xc9ced4,metalness:1,roughness:.24,envMapIntensity:1.2}),
     lidRim:new THREE.MeshStandardMaterial({color:0x2a2f34,metalness:.5,roughness:.45}),
     ss:new THREE.MeshStandardMaterial({color:0xc9ced3,metalness:.9,roughness:.28,side:THREE.DoubleSide}),
     pvc:new THREE.MeshStandardMaterial({color:0xeeeeea,metalness:0,roughness:.38}),
@@ -54,6 +55,9 @@ export function buildPlant(root,scene){
     g=filterTris(g,c=>!(Math.hypot(c.x-DIG.cx,c.z-DIG.cz)>1.555&&c.x>-0.98&&c.z<-1.25));   // broken CAD cage ladder (rebuilt below)
     const m=new THREE.Mesh(g,o.material);m.castShadow=m.receiveShadow=true;m.name=o.name+'_cut';o.visible=false;o.userData.replacedBy=m;o.parent.userData.cut=m});
   const dCut=[];dNode.traverse(o=>{if(o.userData.replacedBy)dCut.push(o.userData.replacedBy)});
+  // bright polished-steel skin (the CAD texture read as dull grey)
+  const steelSkin=new THREE.MeshStandardMaterial({color:0xdfe3e8,metalness:1,roughness:.17,envMapIntensity:1.35});
+  dCut.forEach(m=>{if(/stainless|clad/.test(m.material.name))m.material=steelSkin});
 
   // shredder: drop the raised black stand/plate at its east end (the new hopper + bin tipper replace it)
   // storage vessel: the CAD bottom head is ragged where it meets the stand; cut it and fit a smooth dished head
@@ -201,68 +205,151 @@ export function buildPlant(root,scene){
     const rv=[];const rx=cx+.55*Math.cos(Math.PI*1.75),rz=cz+.55*Math.sin(Math.PI*1.75),ry=slopeY(.55);
     rv.push(placed(new THREE.CylinderGeometry(.06,.06,.18,16),[rx,ry+.09,rz]),placed(new THREE.CylinderGeometry(.13,.13,.12,20),[rx,ry+.24,rz]),placed(new THREE.CylinderGeometry(.15,.15,.02,20),[rx,ry+.31,rz]));
     add(merge(rv),M.gas,lidG);
-    // central gas outlet nozzle
-    const nz=[rod([cx,top+.27,cz],[cx,top+.47,cz],.05,16),rod([cx,top+.45,cz],[cx,top+.49,cz],.09,20)];
-    add(merge(nz),M.gasFl,lidG);
+    // gas outlet nozzle on the east side of the roof (G1 starts here)
+    {const gy=top-.16;add(merge([rod([cx+1.49,gy,cz],[cx+1.72,gy,cz],.05,16),rod([cx+1.5,gy,cz],[cx+1.54,gy,cz],.1,20),rod([cx+1.69,gy,cz],[cx+1.73,gy,cz],.09,20)]),M.gasFl,lidG)}
   }
+  // ---- agitator: top-entry, at the exact centre of the roof (motor, gearbox, drive stool; shaft and impellers inside)
+  const agitatorG=new THREE.Group();agitatorG.name='agitator';plantG.add(agitatorG);
+  const internals=[];   // parts inside the digester, seen only in the "see inside" view
+  {const x=cx,z=cz,y=top+.29,motorB=new THREE.MeshStandardMaterial({color:0x1d4f8f,metalness:.35,roughness:.4});
+    add(merge([new THREE.CylinderGeometry(.26,.26,.04,40).translate(x,y+.02,z),new THREE.CylinderGeometry(.15,.17,.14,32).translate(x,y+.11,z)]),M.steelDark,agitatorG);
+    {const b=[];for(let i=0;i<8;i++){const a=i/8*Math.PI*2;b.push(new THREE.CylinderGeometry(.012,.012,.03,6).translate(x+Math.cos(a)*.22,y+.05,z+Math.sin(a)*.22))}add(merge(b),M.galv,agitatorG)}
+    add(new THREE.CylinderGeometry(.19,.19,.22,40).translate(x,y+.29,z),M.motorDark,agitatorG);                 // gearbox
+    const body=new THREE.CylinderGeometry(1,1,1,72,1,false),P=body.attributes.position;
+    for(let i=0;i<P.count;i++){const px=P.getX(i),pz=P.getZ(i),a=Math.atan2(pz,px),f=1+.06*Math.pow(Math.max(0,Math.cos(a*20)),3);P.setX(i,px*f);P.setZ(i,pz*f)}
+    body.computeVertexNormals();body.scale(.15,.36,.15);body.translate(x,y+.58,z);add(body,motorB,agitatorG);  // finned motor
+    add(merge([new THREE.CylinderGeometry(.155,.155,.08,40).translate(x,y+.8,z),new THREE.SphereGeometry(.155,32,12,0,Math.PI*2,0,Math.PI/2).scale(1,.3,1).translate(x,y+.84,z)]),M.motorDark,agitatorG);
+    add(boxUV(.12,.1,.12).translate(x+.17,y+.6,z),motorB,agitatorG);                                           // terminal box
+    // shaft and two pitched-blade impellers
+    const sh=new THREE.Mesh(rod([x,top+.3,z],[x,1.9,z],.035,12),M.galv);agitatorG.add(sh);internals.push(sh);
+    [4.3,2.4].forEach(iy=>{const bl=[new THREE.CylinderGeometry(.07,.07,.1,16).translate(x,iy,z)];
+      for(let k=0;k<3;k++){const a=k/3*Math.PI*2;const g=boxUV(.5,.02,.14);g.rotateX(.6);g.translate(.3,0,0);g.rotateY(a);g.translate(x,iy,z);bl.push(g)}
+      const m=new THREE.Mesh(merge(bl),M.galv);agitatorG.add(m);internals.push(m)});}
+  // ---- heating: electric heater tub on the shell at 3/4 of the height, heating elements reaching inside
+  const heaterG=new THREE.Group();heaterG.name='heater';plantG.add(heaterG);
+  const HEAT={a:Math.PI*0.3,y:0.1+0.75*(top-0.1)};
+  {const a=HEAT.a,R=1.503,ux=Math.cos(a),uz=Math.sin(a),P=(r,y,t=0)=>[cx+ux*r-uz*t,y,cz+uz*r+ux*t],y=HEAT.y;
+    const tubM=new THREE.MeshStandardMaterial({color:0xc2c7cc,metalness:.7,roughness:.35});
+    add(merge([rod(P(R-.01,y),P(R+.16,y),.11,28),rod(P(R+.14,y),P(R+.18,y),.17,32)]),tubM,heaterG);        // nozzle + flange
+    {const tb=new THREE.CylinderGeometry(.2,.2,.42,40);tb.rotateZ(Math.PI/2);tb.rotateY(-a);tb.translate(...P(R+.39,y));add(tb,tubM,heaterG)}   // heater tub
+    {const cap=new THREE.SphereGeometry(.2,32,16,0,Math.PI*2,0,Math.PI/2);cap.scale(1,.35,1);cap.rotateZ(-Math.PI/2);cap.rotateY(-a);cap.translate(...P(R+.6,y));add(cap,tubM,heaterG)}
+    add(boxUV(.16,.14,.1).rotateY(-a).translate(...P(R+.5,y+.24)),M.steelDark,heaterG);                       // junction box on top of the tub
+    // support brackets to the shell
+    add(merge([rod(P(R+.02,y-.35),P(R+.36,y-.2),.02,8),rod(P(R+.02,y-.35,.12),P(R+.36,y-.2,.12),.02,8),rod(P(R+.02,y-.35,-.12),P(R+.36,y-.2,-.12),.02,8)]),M.steelDark,heaterG);
+    // temperature sensor (thermowell + head) beside the tub
+    add(merge([rod(P(R-.01,y+.5,.35),P(R+.16,y+.5,.35),.02,10),new THREE.CylinderGeometry(.045,.045,.08,16).translate(...P(R+.2,y+.5,.35))]),M.galv,heaterG);
+    // heating elements inside: three U-bends glowing hot
+    const hot=new THREE.MeshStandardMaterial({color:0x8a4a2a,metalness:.6,roughness:.4,emissive:0xff5a14,emissiveIntensity:.9});
+    const el=[];[-.07,0,.07].forEach(t=>{const L=1.0;el.push(rod(P(R,y+.04,t),P(R-L,y+.04,t),.012,8),rod(P(R,y-.04,t),P(R-L,y-.04,t),.012,8));
+      const c=new THREE.TorusGeometry(.04,.012,6,12,Math.PI);c.rotateZ(Math.PI/2);c.rotateY(-a);c.translate(...P(R-L,y,t));el.push(c)});
+    const em=new THREE.Mesh(merge(el),hot);heaterG.add(em);internals.push(em);}
 
-  let tipBin=null,tipPose=null;const fallLumps=[];
-  // ---- 8. food-waste entry: bins at the gate, sorting table, bin tipper, hopper on the shredder
+  let tipBin=null,tipPose=null,tipCar=null,tipFill=null,tablePile=null,hopPile=null;const fallLumps=[],slideLumps=[];
+  // ---- 8. food-waste entry: bins come in through the east gate, a bin tipper empties them onto the
+  //      segregation table, operators on the platform pick out rejects and push the waste into the
+  //      hammer-mill hopper built into the end of the table
   const receptionG=new THREE.Group();receptionG.name='reception';plantG.add(receptionG);
   const RG=receptionG;
-  const hop={x:2.05,z:4.19,y0:1.3,y1:1.45,y2:1.92,w:1.0,d:.9,tw:.4};
+  const hop={x:2.05,z:4.19,y0:1.3,y1:1.38,y2:1.58,w:1.0,d:1.0,tw:.4};
+  const tab={x0:2.55,x1:3.4,z0:3.69,z1:4.69,y:1.6};               // segregation table, flush with the hopper rim
+  const plat={x0:2.45,x1:3.4,z0:2.9,z1:3.66,y:.65};                // operator platform
+  let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+  const lumpCols=[0x7a5a2e,0x9c7b35,0x5d7a2c,0xb0602a,0x6d4a2a,0xc9b27a,0x4f6b25,0xa33b20,0xd9c27a];
+  const lumpMat={};lumpCols.forEach(c=>lumpMat[c]=new THREE.MeshStandardMaterial({color:c,roughness:.85}));
+  const lumpInto=(list,x,y,z,r)=>{const g=new THREE.IcosahedronGeometry(r,1);const P=g.attributes.position;for(let i=0;i<P.count;i++){const f=.8+.35*rnd();P.setXYZ(i,P.getX(i)*f,P.getY(i)*f*.62,P.getZ(i)*f)}
+    g.computeVertexNormals();g.rotateY(rnd()*6);g.translate(x,y,z);list.push({g,c:lumpCols[Math.floor(rnd()*lumpCols.length)]})};
+  const heapInto=(list,x,z,y,rx,rz,n,h)=>{for(let i=0;i<n;i++){const a=rnd()*Math.PI*2,d=Math.sqrt(rnd());const r=.03+rnd()*.035;lumpInto(list,x+Math.cos(a)*d*rx,y+r*.4+(1-d)*h*rnd(),z+Math.sin(a)*d*rz,r)}};
+  const flush=(list,parent)=>{const lc=new Map();list.forEach(l=>{if(!lc.has(l.c))lc.set(l.c,[]);lc.get(l.c).push(l.g)});
+    lc.forEach((gs,c)=>add(merge(gs),lumpMat[c]||new THREE.MeshStandardMaterial({color:c,roughness:c===0x1d1f21?.45:.85}),parent))};
+  const WM=wasteMats();
+  // settled, overfilled bin contents (bin-local coordinates)
+  const fillBin=(bin,n=170)=>{const R=makeRng(11+Math.floor(rnd()*1e6)),b=.62/.7071,
+      hwx=y=>.92*.29*(b+(1-b)*Math.min(1,(y-.1)/.92)),hwz=y=>.92*.36*(b+(1-b)*Math.min(1,(y-.1)/.92));
+    const p=settlePile({x0:-.27,x1:.27,z0:-.34,z1:.34,cell:.02,floor:(x,z)=>(Math.abs(x)<=hwx(1.02)&&Math.abs(z)<=hwz(1.02))?.86:null,
+      inside:(x,z,y,r)=>{const yy=Math.min(y,1.02),mx=hwx(yy)-(y>1.02?r*.2:r*.55),mz=hwz(yy)-(y>1.02?r*.2:r*.55);return[Math.max(-mx,Math.min(mx,x)),Math.max(-mz,Math.min(mz,z))]},
+      n,rMin:.035,rMax:.07,repose:.75,pour:R=>[(R()-.5)*.5,(R()-.5)*.64]},R);
+    const g=new THREE.Group(),ms=[massMesh(p,WM.mass,{minY:.8,rnd:R}),...chunkMeshes(p.chunks,R,WM)];
+    containMeshes(ms,v=>{const yy=Math.min(Math.max(v.y,.13),1.02),mx=hwx(yy)-.006,mz=hwz(yy)-.006;if(v.y<.13)v.y=.13;
+      if(v.y<=1.04){v.x=Math.max(-mx,Math.min(mx,v.x));v.z=Math.max(-mz,Math.min(mz,v.z))}});
+    ms.forEach(m=>g.add(m));bin.add(g);return g};
   {
+    // hopper: short stainless funnel on the mill inlet, rim flush with the table top
     const g=[];
-    // throat box + flared hopper (square frustum via 4-sided cylinder, scaled to a rectangle)
     g.push(placed(new THREE.CylinderGeometry(hop.tw*0.7071,hop.tw*0.7071,hop.y1-hop.y0,4,1,true),[hop.x,(hop.y0+hop.y1)/2,hop.z],[0,Math.PI/4,0]));
     const fr=new THREE.CylinderGeometry(0.7071,hop.tw/hop.w*0.7071,hop.y2-hop.y1,4,1,true);fr.rotateY(Math.PI/4);fr.scale(hop.w,1,hop.d);fr.translate(hop.x,(hop.y1+hop.y2)/2,hop.z);g.push(fr);
+    // upstands on the three outer sides of the hopper so waste is guided in from the table side
+    const hx=hop.w/2,hz=hop.d/2,Y=hop.y2;
+    g.push(boxUV(hop.w,.18,.012).translate(hop.x,Y+.09,hop.z-hz),boxUV(hop.w,.18,.012).translate(hop.x,Y+.09,hop.z+hz),boxUV(.012,.18,hop.d).translate(hop.x-hx,Y+.09,hop.z));
     add(merge(g),M.ss,RG);
-    // rim angle
-    const r=[];const hx=hop.w/2,hz=hop.d/2,Y=hop.y2;
-    r.push(rod([hop.x-hx,Y,hop.z-hz],[hop.x+hx,Y,hop.z-hz],.022,6),rod([hop.x-hx,Y,hop.z+hz],[hop.x+hx,Y,hop.z+hz],.022,6),rod([hop.x-hx,Y,hop.z-hz],[hop.x-hx,Y,hop.z+hz],.022,6),rod([hop.x+hx,Y,hop.z-hz],[hop.x+hx,Y,hop.z+hz],.022,6));
-    add(merge(r),M.galv,RG);
-    // bin tipper: two posts, carriage and a green wheelie bin tipped into the hopper
-    const tp=[];const tx=hop.x,tz=hop.z-0.95;
-    tp.push(boxUV(.7,.04,.55).translate(tx,.12,tz-.05));
-    [-.36,.36].forEach(o=>tp.push(boxUV(.08,2.85,.08).translate(tx+o,.1+2.85/2,tz-.1)));
-    tp.push(boxUV(.8,.08,.08).translate(tx,2.95,tz-.1));
-    tp.push(boxUV(.8,.1,.1).translate(tx,2.75,tz+.02));
+    // segregation table: stainless top sloping slightly down to the hopper, lips on the far and end sides, open on the operator side
+    const top=new THREE.BoxGeometry(tab.x1-tab.x0,.03,tab.z1-tab.z0);top.translate((tab.x0+tab.x1)/2,tab.y-.015,(tab.z0+tab.z1)/2);
+    {const P=top.attributes.position;for(let i=0;i<P.count;i++){const x=P.getX(i);P.setY(i,P.getY(i)+(x-tab.x0)/(tab.x1-tab.x0)*.04)}top.computeVertexNormals()}
+    add(merge([top,boxUV(tab.x1-tab.x0,.16,.012).translate((tab.x0+tab.x1)/2,tab.y+.1,tab.z1),boxUV(.012,.16,tab.z1-tab.z0).translate(tab.x1,tab.y+.12,(tab.z0+tab.z1)/2),
+      boxUV(tab.x1-tab.x0,.03,.012).translate((tab.x0+tab.x1)/2,tab.y+.02,tab.z0)]),M.ss,RG);
+    const tl=[];[[tab.x0+.05,tab.z0+.05],[tab.x1-.05,tab.z0+.05],[tab.x0+.05,tab.z1-.05],[tab.x1-.05,tab.z1-.05]].forEach(([x,z])=>tl.push(boxUV(.05,tab.y-.13,.05).translate(x,.1+(tab.y-.13)/2,z)));
+    tl.push(boxUV(tab.x1-tab.x0,.04,.04).translate((tab.x0+tab.x1)/2,.5,tab.z0+.05),boxUV(tab.x1-tab.x0,.04,.04).translate((tab.x0+tab.x1)/2,.5,tab.z1-.05));
+    add(merge(tl),M.galv,RG);
+    // operator platform with chequer-plate deck, steps on the north side and a handrail
+    const pf=[];pf.push(boxUV(plat.x1-plat.x0,.05,plat.z1-plat.z0).translate((plat.x0+plat.x1)/2,plat.y-.025,(plat.z0+plat.z1)/2));
+    [[plat.x0+.04,plat.z0+.04],[plat.x1-.04,plat.z0+.04],[plat.x0+.04,plat.z1-.04],[plat.x1-.04,plat.z1-.04]].forEach(([x,z])=>pf.push(boxUV(.05,plat.y-.15,.05).translate(x,.1+(plat.y-.15)/2,z)));
+    const sx0=2.62,sx1=3.22;[[.28,2.72],[.46,2.52]].forEach(([y,z])=>{pf.push(boxUV(sx1-sx0,.04,.22).translate((sx0+sx1)/2,y,z-.0));pf.push(boxUV(.04,y-.1,.04).translate(sx0,.1+(y-.1)/2,z),boxUV(.04,y-.1,.04).translate(sx1,.1+(y-.1)/2,z))});
+    add(merge(pf),M.steelDark,RG);
+    const hr=[],H=plat.y+1.0;
+    hr.push(rod([plat.x0,plat.y,plat.z0],[plat.x0,H,plat.z0],.02,8),rod([plat.x0,plat.y,plat.z1],[plat.x0,H,plat.z1],.02,8),rod([plat.x0,H,plat.z0],[plat.x0,H,plat.z1],.02,8),rod([plat.x0,plat.y+.5,plat.z0],[plat.x0,plat.y+.5,plat.z1],.015,8));
+    hr.push(rod([plat.x0,H,plat.z0],[sx0,H,plat.z0],.02,8),rod([plat.x1,plat.y,plat.z0],[plat.x1,H,plat.z0],.02,8),rod([sx1,H,plat.z0],[plat.x1,H,plat.z0],.02,8),rod([sx1,plat.y,plat.z0],[sx1,H,plat.z0],.02,8),rod([sx0,plat.y,plat.z0],[sx0,H,plat.z0],.02,8));
+    add(merge(hr),M.handle,RG);
+    // reject crate on the platform with a few plastics in it
+    add(boxUV(.42,.28,.34).translate(plat.x0+.3,plat.y+.14,plat.z0+.3),M.red,RG);
+    const rej=[];for(let i=0;i<6;i++)rej.push({g:boxUV(.07+rnd()*.06,.02,.05+rnd()*.05).rotateY(rnd()*3).translate(plat.x0+.2+rnd()*.2,plat.y+.27+rnd()*.03,plat.z0+.2+rnd()*.2),c:[0x2a6fdb,0xe8e8e8,0xd9302c][i%3]});
+    // bin tipper at the far end of the table: lifts a bin and tips it onto the table
+    const tx=3.78,tz=4.19,tp=[];
+    tp.push(boxUV(.55,.04,.7).translate(tx,.12,tz));
+    // taller mast (3.4 m) so the bin is lifted until its rim clears the table lip before it tips
+    [-.36,.36].forEach(o=>tp.push(boxUV(.08,3.4,.08).translate(4.0,.1+1.7,tz+o)));
+    tp.push(boxUV(.08,.08,.8).translate(4.0,3.5,tz),boxUV(.3,.03,.08).translate(3.88,3.46,tz-.36),boxUV(.3,.03,.08).translate(3.88,3.46,tz+.36));
     add(merge(tp),M.steelDark,RG);
-    add(rod([tx-.36,0.3,tz-.1],[tx-.36,2.4,tz-.02],.04,10),M.red,RG);add(rod([tx+.36,0.3,tz-.1],[tx+.36,2.4,tz-.02],.04,10),M.red,RG);  // lift rams
-    // animated bin: rests on the floor, is lifted up the mast and tipped into the hopper
-    tipBin=makeBin(M,true);RG.add(tipBin);
-    tipPose={A:{p:new THREE.Vector3(tx,.1,tz-.55),r:0},B:{p:new THREE.Vector3(tx,1.95,tz-.55),r:0},C:{p:new THREE.Vector3(tx,hop.y2+.17+.72,hop.z-.12-.72),r:2.36}};
-    tipBin.position.copy(tipPose.C.p);tipBin.rotation.x=tipPose.C.r;
-    const lumpG=new THREE.IcosahedronGeometry(.045,0);lumpG.scale(1,.7,1);
-    [0x7a5a2e,0x9c7b35,0x5d7a2c,0xb0602a,0x6d4a2a,0x8a6a35,0xc9b27a,0x4f6b25,0x7a5a2e,0xb0602a].forEach((c,i)=>{const l=new THREE.Mesh(lumpG,new THREE.MeshStandardMaterial({color:c,roughness:.9}));l.visible=false;l.userData.k=i;RG.add(l);fallLumps.push(l)});
-    // sorting table just inside the gate
-    const st={x0:2.45,x1:3.65,z0:1.05,z1:1.85,y:.9};
-    const tb=[];[[st.x0+.04,st.z0+.04],[st.x1-.04,st.z0+.04],[st.x0+.04,st.z1-.04],[st.x1-.04,st.z1-.04]].forEach(([x,z])=>tb.push(boxUV(.05,st.y-.1,.05).translate(x,.1+(st.y-.1)/2,z)));
-    tb.push(boxUV(st.x1-st.x0,.05,.05).translate((st.x0+st.x1)/2,st.y-.025,st.z0+.025),boxUV(st.x1-st.x0,.05,.05).translate((st.x0+st.x1)/2,st.y-.025,st.z1-.025));
-    tb.push(boxUV(.05,.05,st.z1-st.z0).translate(st.x0+.025,st.y-.025,(st.z0+st.z1)/2),boxUV(.05,.05,st.z1-st.z0).translate(st.x1-.025,st.y-.025,(st.z0+st.z1)/2));
-    tb.push(boxUV(st.x1-st.x0,.12,.03).translate((st.x0+st.x1)/2,st.y+.06,st.z0+.015),boxUV(.03,.12,st.z1-st.z0).translate(st.x0+.015,st.y+.06,(st.z0+st.z1)/2),boxUV(.03,.12,st.z1-st.z0).translate(st.x1-.015,st.y+.06,(st.z0+st.z1)/2));
-    tb.push(boxUV(st.x1-st.x0,.03,.03).translate((st.x0+st.x1)/2,.25,st.z0+.04),boxUV(st.x1-st.x0,.03,.03).translate((st.x0+st.x1)/2,.25,st.z1-.04));
-    add(merge(tb),M.galv,RG);
-    const top=new THREE.Mesh(new THREE.PlaneGeometry(st.x1-st.x0-.06,st.z1-st.z0-.06),M.grate);top.rotation.x=-Math.PI/2;top.position.set((st.x0+st.x1)/2,st.y,(st.z0+st.z1)/2);RG.add(top);
-    // reject crate under the table
-    add(boxUV(.5,.3,.38).translate(st.x0+.35,.25,(st.z0+st.z1)/2),M.red,RG);
-    // food waste: heaped on the table, filling the hopper, in the open bins and in sacks by the gate
-    const lumps=[],lumpMats=[0x7a5a2e,0x9c7b35,0x5d7a2c,0xb0602a,0x6d4a2a,0xc9b27a,0x4f6b25];let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
-    const lump=(x,y,z,r)=>{const g=new THREE.IcosahedronGeometry(r,1);const P=g.attributes.position;for(let i=0;i<P.count;i++){const f=.8+.35*rnd();P.setXYZ(i,P.getX(i)*f,P.getY(i)*f*.62,P.getZ(i)*f)}g.computeVertexNormals();g.rotateY(rnd()*6);g.translate(x,y,z);lumps.push({g,c:lumpMats[Math.floor(rnd()*lumpMats.length)]})};
-    const heap=(x,z,y,rx,rz,n,h)=>{for(let i=0;i<n;i++){const a=rnd()*Math.PI*2,d=Math.sqrt(rnd());const r=.03+rnd()*.035;const k=1-d;lump(x+Math.cos(a)*d*rx,y+r*.4+k*h*rnd(),z+Math.sin(a)*d*rz,r)}};
-    heap((st.x0+st.x1)/2-.1,(st.z0+st.z1)/2,st.y,.42,.28,46,.12);                 // sorting table
-    heap(hop.x,hop.z,hop.y2-.2,.36,.31,40,.16);                                   // hopper
-    // the reject crate gets a few plastics
-    for(let i=0;i<5;i++){const g=boxUV(.08+rnd()*.06,.02,.05+rnd()*.05).rotateY(rnd()*3).translate(st.x0+.22+rnd()*.26,.38+rnd()*.04,(st.z0+st.z1)/2-.12+rnd()*.24);lumps.push({g,c:[0x2a6fdb,0xe8e8e8,0xd9302c][i%3]})}
-    // bins: one waiting by the tipper, two outside on the landing, all open and full
-    [[3.05,2.95,0.2],[5.75,0.45,0.3],[5.75,1.3,-0.2]].forEach(([x,z,ry])=>{const b=makeBin(M,true);b.position.set(x,0.1,z);b.rotation.y=ry;RG.add(b);
-      b.updateMatrixWorld(true);const c=new THREE.Vector3(0,1.0,0).applyMatrix4(b.matrixWorld);heap(c.x,c.z,c.y,.22,.26,22,.1)});
-    // sacks of waste by the gate
+    add(rod([4.0,.3,tz-.27],[4.0,1.95,tz-.27],.035,10),M.red,RG);add(rod([4.0,.3,tz+.27],[4.0,1.95,tz+.27],.035,10),M.red,RG);
+    // carriage: slides up the mast and carries the tipping pivot at the bin's front rim
+    tipCar=new THREE.Group();RG.add(tipCar);
+    tipCar.add(add(merge([boxUV(.06,.08,.84).translate(.02,0,0),boxUV(.4,.05,.05).translate(-.17,0,-.34),boxUV(.4,.05,.05).translate(-.17,0,.34),rod([-.36,0,-.36],[-.36,0,.36],.025,12)]),M.steelDark,tipCar));
+    tipBin=makeBin(M,true);tipBin.rotation.order='ZYX';tipBin.rotation.y=-Math.PI/2;RG.add(tipBin);
+    tipFill=fillBin(tipBin,80);
+    // pivot = bin's front rim (table side); B lifts the rim above the table lip, C tips about the pivot
+    tipPose={A:{y:.1,r:0},B:{y:.83,r:0},C:{y:.83,r:2.3}};
+
+    const lumpG=chunkGeo(.045,makeRng(3));
+    for(let i=0;i<14;i++){const l=new THREE.Mesh(lumpG,WM[WASTE_COLS[i%WASTE_COLS.length]]);l.visible=false;l.userData.k=i;RG.add(l);fallLumps.push(l)}
+    for(let i=0;i<16;i++){const l=new THREE.Mesh(lumpG,WM[WASTE_COLS[(i*4)%WASTE_COLS.length]]);l.userData.k=i;l.scale.setScalar(.8+((i*37)%10)/20);RG.add(l);slideLumps.push(l)}
+    // waste heaped on the table and filling the hopper, rejects in the crate
+    const L=[];
+    {const R=makeRng(21),tY=(x)=>tab.y+(x-tab.x0)/(tab.x1-tab.x0)*.04;
+      tablePile=settlePile({x0:tab.x0,x1:tab.x1,z0:tab.z0,z1:tab.z1,cell:.025,floor:(x,z)=>tY(x),
+        inside:(x,z,y,r)=>[Math.max(tab.x0+.01+r*.5,Math.min(tab.x1-.02-r*.6,x)),Math.max(tab.z0+.03+r*.6,Math.min(tab.z1-.02-r*.6,z))],
+        n:230,rMin:.03,rMax:.065,repose:.7,pour:R=>{const e=R()<.6;return[e?3.0+R()*.38:tab.x0+R()*(tab.x1-tab.x0),tab.z0+.12+R()*(tab.z1-tab.z0-.2)]}},R);
+      {const ms=[massMesh(tablePile,WM.mass,{rnd:R}),...chunkMeshes(tablePile.chunks,R,WM)];
+        containMeshes(ms,v=>{v.x=Math.max(tab.x0+.008,Math.min(tab.x1-.014,v.x));v.z=Math.max(tab.z0+.01,Math.min(tab.z1-.014,v.z));v.y=Math.max(v.y,tY(v.x)+.004)});
+        ms.forEach(m=>RG.add(m))}
+      const fl=(x,z)=>{const m=Math.max(Math.abs(x-hop.x),Math.abs(z-hop.z));if(m>.49)return null;if(m<hop.tw/2)return hop.y1-.12;return hop.y1+(m-hop.tw/2)/(.5-hop.tw/2)*(hop.y2-hop.y1)};
+      hopPile=settlePile({x0:hop.x-.5,x1:hop.x+.5,z0:hop.z-.5,z1:hop.z+.5,cell:.025,floor:fl,
+        inside:(x,z,y,r)=>{const lim=(y>=hop.y2?.48:Math.max(hop.tw/2,(.5-hop.tw/2)*(y-hop.y1)/(hop.y2-hop.y1)+hop.tw/2))-r*.5;return[Math.max(hop.x-lim,Math.min(hop.x+lim,x)),Math.max(hop.z-lim,Math.min(hop.z+lim,z))]},
+        n:200,rMin:.03,rMax:.065,repose:.7,cap:(x,z)=>hop.y2+.1,pour:R=>[hop.x+(R()-.5)*.9,hop.z+(R()-.5)*.9]},R);
+      {const ms=[massMesh(hopPile,WM.mass,{rnd:R}),...chunkMeshes(hopPile.chunks,R,WM)];
+        containMeshes(ms,v=>{// inside the square funnel: half-size grows linearly from the throat (y1) to the rim (y2)
+          const yy=Math.min(Math.max(v.y,hop.y1-.12),hop.y2),half=(yy<=hop.y1?hop.tw/2:hop.tw/2+(.5-hop.tw/2)*(yy-hop.y1)/(hop.y2-hop.y1))-.008;
+          if(v.y<=hop.y2+.005){v.x=hop.x+Math.max(-half,Math.min(half,v.x-hop.x));v.z=hop.z+Math.max(-half,Math.min(half,v.z-hop.z))}
+          else{v.x=hop.x+Math.max(-.49,Math.min(.49,v.x-hop.x));v.z=hop.z+Math.max(-.49,Math.min(.49,v.z-hop.z))}
+          if(v.y<hop.y1-.12)v.y=hop.y1-.12});
+        ms.forEach(m=>RG.add(m))}}
+    L.push(...rej);
+    // full open bins: one queued on the way to the tipper, two outside the gate
+    [[3.78,2.5,1.57],[5.75,0.45,0.3],[5.75,1.3,-0.2]].forEach(([x,z,ry])=>{const b=makeBin(M,true);b.position.set(x,0.1,z);b.rotation.y=ry;RG.add(b);fillBin(b)});
+    // sacks of waste by the gate and a few spilled scraps
     [[5.25,0.3,.0],[5.45,0.22,.9],[5.3,1.62,2.0],[4.95,1.55,.5]].forEach(([x,z,r],i)=>{const g=new THREE.SphereGeometry(.2,24,16);const P=g.attributes.position;
       for(let j=0;j<P.count;j++){const y=P.getY(j);P.setXYZ(j,P.getX(j)*(1+.1*Math.sin(j)),y<0?y*.55:y*1.15,P.getZ(j)*(.85+.1*Math.cos(j*1.7)))}g.computeVertexNormals();g.rotateY(r);g.translate(x,0.1+.11,z);
-      const t=rod([x,.1+.32,z],[x,.1+.42,z],.035,8);lumps.push({g:merge([g,t]),c:i%2?0x1d1f21:0x2b4a2f})});
-    const lc=new Map();lumps.forEach(l=>{if(!lc.has(l.c))lc.set(l.c,[]);lc.get(l.c).push(l.g)});
-    lc.forEach((gs,c)=>add(merge(gs),new THREE.MeshStandardMaterial({color:c,roughness:c===0x1d1f21?.45:.85}),RG));
+      const t=rod([x,.1+.32,z],[x,.1+.42,z],.035,8);L.push({g:merge([g,t]),c:i%2?0x1d1f21:0x2b4a2f})});
+    {const R=makeRng(5),sp=[];for(let i=0;i<12;i++){const r=.025+R()*.02,g=chunkGeo(r,R);g.translate(3.5+R()*.55,.1+r*.35,3.75+R()*.9);sp.push(g)}
+      add(merge(sp),WM[WASTE_COLS[0]],RG);}
+    flush(L,RG);
   }
 
   // ---- 9. pipework (from routes.js) + flow riders
@@ -304,14 +391,26 @@ export function buildPlant(root,scene){
     fr.mesh.material.depthWrite=false;plantG.add(fr.mesh);flowObjs.push(fr.mesh);riders.push(fr)});
 
   const ease=k=>k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
-  function poseLerp(a,b,k){k=ease(k);tipBin.position.lerpVectors(a.p,b.p,k);tipBin.rotation.x=a.r+(b.r-a.r)*k}
+  function poseLerp(a,b,k){k=ease(k);const y=a.y+(b.y-a.y)*k,th=a.r+(b.r-a.r)*k;
+    // front rim of the bin sits at (-.36, 1.02) from its base in the tipper frame; rotate about it
+    const px=3.78-.36,py=y+1.02,ox=-.36,oy=1.02,c=Math.cos(th),s=Math.sin(th);
+    tipBin.position.set(px-(ox*c-oy*s),py-(ox*s+oy*c),4.19);tipBin.rotation.z=th;
+    if(tipCar)tipCar.position.set(3.98,py,4.19)}
   const T=11; // tipper cycle, seconds
   function animateTipper(t){if(!tipBin)return;const u=((t%T)+T)%T;const P=tipPose;
     if(u<1.5)poseLerp(P.A,P.A,0);else if(u<4)poseLerp(P.A,P.B,(u-1.5)/2.5);else if(u<5.6)poseLerp(P.B,P.C,(u-4)/1.6);
     else if(u<7.4)poseLerp(P.C,P.C,0);else if(u<9)poseLerp(P.C,P.B,(u-7.4)/1.6);else poseLerp(P.B,P.A,(u-9)/2);
-    fallLumps.forEach(l=>{const k=l.userData.k,s=(u-5.5-k*.22)/0.75;l.visible=s>0&&s<1;if(l.visible){l.position.set(hop.x+(k%3-1)*.12,2.05-0.5*s*s,hop.z-.15+(k%2)*.12);l.rotation.set(s*4+k,s*3,0)}});}
-  function restTipper(){if(!tipBin)return;poseLerp(tipPose.C,tipPose.C,0);fallLumps.forEach(l=>l.visible=false)}
-  function updateFlows(t,cam){riders.forEach(r=>r.update(t,cam));animateTipper(t)}
+    tipFill.visible=u<5.3||u>10.6;
+    // waste pours out of the bin mouth onto the far end of the table
+    fallLumps.forEach(l=>{const k=l.userData.k,tt=u-5.25-k*.12;if(tt<0||tt>1.6){l.visible=false;return}l.visible=true;
+      const x=3.15-.1*Math.min(tt,.4)+(k%3-1)*.05,z=4.19+((k%5)-2)*.12,land=Math.max(tablePile.hAt(x,z),tab.y)+.03,y0=2.05,y=y0-4.9*tt*tt;   // free fall, g = 9.8 m/s²
+      l.position.set(x,Math.max(land,y),z);if(y>land)l.rotation.set(tt*9+k,tt*7,0)});
+    // operators push sorted waste along the table and into the hopper
+    slideLumps.forEach(l=>{const k=l.userData.k,s=((t*.14+k/16)%1+1)%1,z=4.19+(((k*7)%9)-4)*.08;
+      if(s<.75){const q=s/.75,x=3.25-.7*q;l.position.set(x,Math.max(tablePile.hAt(x,z),tab.y)+.03,z);l.visible=true}else{const q=(s-.75)/.25,x=2.55-.25*q,zz=z*(1-q*.4)+hop.z*q*.4,yt=Math.max(tablePile.hAt(2.58,z),tab.y)+.03,yh=Math.max(hopPile.hAt(x,zz),hop.y2-.15)+.02-.08*q,y=yt-4.9*(q*.45)*(q*.45);l.position.set(x,Math.max(yh,y),zz);l.visible=q<.92}
+      l.rotation.set(0,k,s*6)});}
+  function restTipper(){if(!tipBin)return;poseLerp(tipPose.A,tipPose.A,0);tipFill.visible=true;fallLumps.forEach(l=>l.visible=false);slideLumps.forEach(l=>l.visible=false)}
+  function updateFlows(t,cam){if(window.__tipT!=null)t=window.__tipT;if(slideLumps.length&&!slideLumps[0].visible)slideLumps.forEach(l=>l.visible=true);riders.forEach(r=>r.update(t,cam));animateTipper(t)}
 
   // ---- kitchen: cast-iron burner heads, pan supports, a cooking pot, and live flames
   const kitchenG=new THREE.Group();kitchenG.name='kitchen_burners';plantG.add(kitchenG);layers.kitchen.push(kitchenG);
@@ -352,21 +451,78 @@ export function buildPlant(root,scene){
       fs.set(1,fl,1);fm.compose(fp,fq,fs);F.fi.setMatrixAt(i,fm);fs.set(1,fl*(.9+.2*Math.sin(t*23+i)),1);fm.compose(fp,fq,fs);F.fo.setMatrixAt(i,fm)}
     F.fi.instanceMatrix.needsUpdate=F.fo.instanceMatrix.needsUpdate=true})}
 
+  // ---- cable tray (as in the GPS electrical layout): ladder tray at 2.5 m; thin conduits drop from it
+  //      straight onto the terminal boxes of each load and end in a cable gland
+  const trayG=new THREE.Group();trayG.name='cable_tray';plantG.add(trayG);
+  {const Y=2.5,W=.3,T=[],cond=[],gl=[],cr=.008;
+    const run=(a,b)=>{const A=new THREE.Vector3(a[0],Y,a[1]),B=new THREE.Vector3(b[0],Y,b[1]),d=B.clone().sub(A),L=d.length(),ang=Math.atan2(d.x,d.z);
+      [-W/2,W/2].forEach(o=>{const g=boxUV(.01,.04,L+.01);g.translate(o,0,L/2);g.rotateY(ang);g.translate(A.x,Y,A.z);T.push(g)});
+      for(let t=.15;t<L;t+=.3){const g=boxUV(W,.008,.015);g.translate(0,-.016,t);g.rotateY(ang);g.translate(A.x,Y,A.z);T.push(g)}};
+    const post=(x,z,along)=>{T.push(boxUV(.035,Y-.12,.035).translate(x,.1+(Y-.12)/2,z),(along?boxUV(.035,.03,.36):boxUV(.36,.03,.035)).translate(x,Y-.035,z),boxUV(.12,.01,.12).translate(x,.105,z))};
+    run([-4.2,1.55],[2.83,1.55]);run([1.3,1.55],[1.3,4.25]);run([-1.45,1.55],[-1.45,4.3]);run([2.83,1.55],[2.83,-0.1]);
+    [[-4.2,1.55],[-1.6,1.55],[0.45,1.55],[2.2,1.55]].forEach(([x,z])=>post(x,z));
+    post(1.3,3.4,true);post(-1.45,2.75,true);post(2.83,0.62,true);
+    {const tm=M.galv.clone();tm.transparent=true;tm.opacity=.5;tm.depthWrite=false;const tr=add(merge(T),tm,trayG);tr.castShadow=false;tr.renderOrder=3;}
+    // conduit along an orthogonal path with small bends, ending in a gland on the terminal box
+    const C=(pts,endUp=true)=>{const P=pts.map(p=>new THREE.Vector3(...p)),Q=[P[0]];
+      for(let i=1;i<P.length-1;i++){const a=P[i].clone().sub(P[i-1]),b=P[i+1].clone().sub(P[i]),r=Math.min(.07,a.length()*.45,b.length()*.45);
+        Q.push(P[i].clone().addScaledVector(a.normalize(),-r),P[i].clone(),P[i].clone().addScaledVector(b.normalize(),r))}
+      Q.push(P[P.length-1]);const c=new THREE.CatmullRomCurve3(Q,false,'centripetal');
+      cond.push(new THREE.TubeGeometry(c,Math.max(24,Q.length*10),cr,8,false));
+      const e=P[P.length-1];gl.push(new THREE.CylinderGeometry(.016,.018,.03,12).translate(e.x,e.y-.012,e.z))};
+    const d=Y-.045;   // underside of the tray
+    // loads: terminal-box tops (from the CAD) and the new kit
+    const pump1=xf('pump',[-3.411,.639,2.866]),pump2=xf('pump',[0,0,0])&&xf('pump2',[1.934,.639,4.156]),comp=xf('compressor',[2.15,1.054,-2.3]);
+    const starter=xf('starter',[1.18,1.547,4.73]),dist=xf('dist',[-4.27,1.508,4.2]),vfd=xf('vfd',[-0.06,1.254,0]);
+    const up=(p,h=.02)=>[p[0],p[1]+h,p[2]];
+    C([[1.32,d,4.19],up([1.32,1.09,4.19])]);                                             // shredder motor
+    C([[pump1[0],d,pump1[2]],up(pump1)]);                                                 // screw pump 1
+    C([[pump2[0],d,1.55],[pump2[0],1.2,1.55],[pump2[0],1.2,pump2[2]],up(pump2)]);         // screw pump 2
+    C([[comp[0],d,comp[2]],up(comp)]);                                                    // compressor
+    [starter,dist,vfd].forEach(p=>C([[p[0],d,1.55],[p[0],2.1,1.55],[p[0],2.1,p[2]],up(p)]));   // panels up into the tray
+    // digester heater junction box and agitator motor: riser from the top of the tray
+    {const a=Math.PI*.3,jx=DIG.cx+Math.cos(a)*2.003,jz=DIG.cz+Math.sin(a)*2.003,jy=HEAT.y+.24+.07;
+      C([[jx,Y+.045,1.55],[jx,jy+.25,1.55],[jx,jy+.25,jz],[jx,jy+.02,jz]]);
+      const ax=DIG.cx+.17,az=DIG.cz,ay=DIG.cut+.29+.6+.05;
+      C([[-1.25,Y+.045,1.55],[-1.25,ay+.3,1.55],[-1.25,ay+.3,az],[ax,ay+.3,az],[ax,ay+.02,az]]);
+      // clips holding the risers
+      [[jx,3.3,1.55],[jx,4.1,1.55],[-1.25,3.3,1.55],[-1.25,4.5,1.55],[-1.25,5.7,1.55]].forEach(p=>gl.push(new THREE.BoxGeometry(.03,.03,.03).translate(...p)));
+      // riser support poles
+      T.length=0;add(merge([rod([-1.25,.1,1.62],[-1.25,ay+.3,1.62],.02,8),rod([-1.25,ay+.3,1.62],[-1.25,ay+.3,1.55],.012,6)]),M.galv,trayG);}
+    add(merge(cond),new THREE.MeshStandardMaterial({color:0x1e2124,roughness:.55}),trayG);
+    add(merge(gl),M.galv,trayG);}
+
   // ---- 10. what can be clicked: key -> objects
-  const picks={reception:[receptionG],kitchen:['burner_frame'].map(n=>byName[n]).filter(Boolean).concat([kitchenG]),pit:pitObjs,flare:[groups.flare.outer,flareExtra]};
+  const picks={agitator:[agitatorG],heater:[heaterG],tray:[trayG],reception:[receptionG],kitchen:['burner_frame'].map(n=>byName[n]).filter(Boolean).concat([kitchenG]),pit:pitObjs,flare:[groups.flare.outer,flareExtra]};
   for(const k in groups){if(k==='flare')continue;picks[k]=[groups[k].outer].concat(groups[k].proc?[groups[k].proc]:[])}
-  return {layers,groups,xf,flowObjs,updateFlows,updateAmbient,restTipper,routes,picks,targets};
+  // ---- "see inside" view: digester skin turns glassy so the agitator and heater inside show
+  const xrayMeshes=[];[groups.digester.outer,groups.digester.proc].forEach(r=>r&&r.traverse(m=>{if(m.isMesh&&!internals.includes(m))xrayMeshes.push(m)}));
+  const xrayMat=new Map();
+  function setXray(on){xrayMeshes.forEach(m=>{if(on){if(!m.userData.mat0)m.userData.mat0=m.material;let x=xrayMat.get(m.userData.mat0);
+      if(!x){x=m.userData.mat0.clone();x.transparent=true;x.opacity=.16;x.depthWrite=false;x.side=THREE.DoubleSide;xrayMat.set(m.userData.mat0,x)}m.material=x;m.castShadow=false}
+    else if(m.userData.mat0){m.material=m.userData.mat0;m.castShadow=true}})}
+  internals.forEach(m=>{m.renderOrder=1});
+  return {layers,groups,xf,flowObjs,updateFlows,updateAmbient,restTipper,routes,picks,targets,setXray};
 }
 
 function makeBin(M,open){
-  const g=new THREE.Group();const w=.58,d=.72,h=.98;
-  const body=new THREE.CylinderGeometry(.7071,.62,1,4,1,false);body.rotateY(Math.PI/4);body.scale(w,h,d);body.translate(0,h/2+.05,0);
-  const m=new THREE.Mesh(body,M.green);m.castShadow=true;g.add(m);
-  const lidG=boxUV(w+.04,.04,d+.06);let lid;
+  // 240 L wheelie bin: tapered walls with real thickness, open mouth with a rolled rim, floor, lid hinged back, axle and wheels
+  const g=new THREE.Group();const w=.58,d=.72,h=.98,b=.62/.7071;
+  const shell=(sc,y0,y1,closed)=>{const c=new THREE.CylinderGeometry(.7071,.7071*b,1,4,1,!closed);c.rotateY(Math.PI/4);c.scale(w*sc,y1-y0,d*sc);c.translate(0,(y0+y1)/2,0);return c};
+  if(!M.binIn)M.binIn=new THREE.MeshStandardMaterial({color:0x0f3d1f,roughness:.7,side:THREE.BackSide});
+  if(!M.greenWall)M.greenWall=M.green.clone(),M.greenWall.side=THREE.FrontSide;
+  const out=new THREE.Mesh(shell(1,.06,h+.04,!open),M.greenWall);out.castShadow=true;g.add(out);
+  if(open){const inn=new THREE.Mesh(shell(.92,.1,h+.04,false),M.binIn);g.add(inn);
+    g.add(new THREE.Mesh(boxUV(w*.84,.02,d*.84).translate(0,.11,0),M.binIn.clone()));
+    // rolled rim around the mouth
+    const hw=w/2,hd=d/2,y=h+.045,r=[rod([-hw,y,-hd],[hw,y,-hd],.022,8),rod([-hw,y,hd],[hw,y,hd],.022,8),rod([-hw,y,-hd],[-hw,y,hd],.022,8),rod([hw,y,-hd],[hw,y,hd],.022,8)];
+    g.add(new THREE.Mesh(merge(r),M.greenDark))}
+  const lidG=boxUV(w+.06,.04,d+.06);let lid;
   if(open){lidG.translate(0,.02,(d+.06)/2);lid=new THREE.Mesh(lidG,M.greenDark);lid.position.set(0,h+.06,-(d+.06)/2);lid.rotation.x=-2.75}
-  else{lid=new THREE.Mesh(lidG.translate(0,h+.07,0),M.greenDark)}
+  else{lid=new THREE.Mesh(lidG.translate(0,h+.08,0),M.greenDark)}
   lid.castShadow=true;g.add(lid);
-  const wheels=new THREE.Mesh(merge([placed(new THREE.CylinderGeometry(.1,.1,.05,16),[-w/2+.04,.1,-d/2+.08],[0,0,Math.PI/2]),placed(new THREE.CylinderGeometry(.1,.1,.05,16),[w/2-.04,.1,-d/2+.08],[0,0,Math.PI/2])]),M.rubber);g.add(wheels);
+  g.add(new THREE.Mesh(merge([rod([0,h-.02,-d/2-.02],[0,h-.02,-d/2-.06],.02,8),rod([-w/2+.05,h-.04,-d/2-.07],[w/2-.05,h-.04,-d/2-.07],.018,8)]),M.greenDark));   // handle
+  g.add(new THREE.Mesh(merge([placed(new THREE.CylinderGeometry(.1,.1,.05,16),[-w/2+.02,.1,-d/2+.08],[0,0,Math.PI/2]),placed(new THREE.CylinderGeometry(.1,.1,.05,16),[w/2-.02,.1,-d/2+.08],[0,0,Math.PI/2]),rod([-w/2,.1,-d/2+.08],[w/2,.1,-d/2+.08],.012,8)]),M.rubber));
   return g;
 }
 

@@ -98,7 +98,7 @@ window.build3d=function(opts){
     let best=null,bd=Infinity;
     for(const k of keys){const h=ray.intersectObjects(meshesOf(k),false)[0];if(h&&h.distance<bd){bd=h.distance;best=k}}
     return best}
-  function dims(k){if(k==='reception'||k==='kitchen'||k==='pit')return null;const p=proxies.find(q=>q.userData.key===k);if(!p)return null;const s=p.userData.box.getSize(new THREE.Vector3());return [s.x,s.z,s.y].map(v=>Math.round(v*10)/10)}
+  function dims(k){if(['reception','kitchen','pit','heater','agitator','tray'].includes(k))return null;const p=proxies.find(q=>q.userData.key===k);if(!p)return null;const s=p.userData.box.getSize(new THREE.Vector3());return [s.x,s.z,s.y].map(v=>Math.round(v*10)/10)}
   function select(k){selected=k||null;if(outline)outline.selectedObjects=selected&&plant?plant.picks[selected]:[]}
   let down=null,hoverPending=null,hoverKey=null;
   canvas.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,t:performance.now()}});
@@ -110,9 +110,10 @@ window.build3d=function(opts){
     canvas.style.cursor=k?'pointer':'';if(k!==hoverKey||k){hoverKey=k;const r=stage.getBoundingClientRect();opts.onHover&&opts.onHover(k,x-r.left,y-r.top)}}
 
   // ---- layers (roof, compound wall, surroundings, kitchen) ----
-  const layerState={roof:false,compound:false,surroundings:false,kitchen:true};
+  const layerState={roof:false,compound:false,surroundings:false,kitchen:true,xray:false};
   function applyLayers(){if(!plant)return;
     for(const k in layerState)(plant.layers[k]||[]).forEach(o=>o.visible=layerState[k]);
+    plant.setXray(layerState.xray);
     scene.background=layerState.surroundings?env:plainBg;
     if(gtao)gtao.enabled=gtao.enabled; }
   function setLayer(k,v){layerState[k]=v;applyLayers()}
@@ -131,7 +132,7 @@ window.build3d=function(opts){
       if(gtao&&H.fps<28&&!H.cut){H.low=(H.low||0)+1;if(H.low>3){gtao.enabled=false;renderer.setPixelRatio(1);resize();H.cut=1}}}
   }
   requestAnimationFrame(frame);
-  window.__fps=()=>H.fps;window.__layer=setLayer;
+  window.__fps=()=>H.fps;window.__camObj=camera;window.__layer=setLayer;
   window.__pick=(x,y)=>pickAt(x,y);window.__pickDbg=(cx,cy)=>{const r=canvas.getBoundingClientRect();ndc.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera);return ray.intersectObjects(proxies,false).slice(0,6).map(h=>h.object.userData.key+":"+h.distance.toFixed(2)+"/"+((ray.intersectObjects(meshesOf(h.object.userData.key),false)[0]||{}).distance||-1))};window.__proxies=()=>proxies.map(p=>p.userData.key);window.__proj=(x,y,z)=>{const v=new THREE.Vector3(x,y,z).project(camera),r=canvas.getBoundingClientRect();return [r.left+(v.x+1)/2*r.width,r.top+(1-v.y)/2*r.height]};
   return {setStop,
     flows:v=>{showFlows=v;if(plant){plant.flowObjs.forEach(o=>o.visible=v);if(!v)plant.restTipper()}},

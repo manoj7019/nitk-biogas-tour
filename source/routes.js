@@ -18,7 +18,7 @@ export const ROUTES=({DIG})=>{
   // ---- digestate (black HDPE) over the west wall into the collection pit
   {id:'D1',a:'digester',b:null,medium:'digestate',from:'Digester overflow',to:'Digestate pit (outside west wall)',pts:[[DIG.cx-DIG.r+0.02,1.6,DIG.cz],[-5.3,1.6,DIG.cz],[-5.3,0.2,DIG.cz]]},
   // ---- biogas (yellow steel)
-  {id:'G1',a:null,b:'cage',medium:'gas',from:'Digester gas outlet (roof)',to:'Balloon cage',pts:[[DIG.cx,6.35,DIG.cz],[DIG.cx,6.62,DIG.cz],[-0.5,6.62,DIG.cz],[-0.5,2.75,DIG.cz],[0.8,2.75,DIG.cz],[0.8,2.44,DIG.cz]]},
+  {id:'G1',a:null,b:'cage',medium:'gas',from:'Digester gas outlet (top of the side wall)',to:'Balloon cage',pts:[[DIG.cx+1.73,DIG.cut-.16,DIG.cz],[-0.3,DIG.cut-.16,DIG.cz],[-0.3,2.75,DIG.cz],[0.8,2.75,DIG.cz],[0.8,2.44,DIG.cz]]},
   {id:'G2',a:'cage',b:'h2s',medium:'gas',from:'Balloon cage outlet',to:'H2S scrubber inlet',pts:[[0.4,0.55,-1.12],[0.4,0.55,-2.49]]},
   {id:'G3',a:'h2s',b:'h2o',medium:'gas',from:'H2S scrubber outlet',to:'Moisture scrubber inlet',pts:[[0.4,1.23,-2.75],[0.4,1.48,-2.75],[1.05,1.48,-2.75],[1.05,1.23,-2.75]]},
   {id:'G4',a:'h2o',b:'filter',medium:'gas',from:'Moisture scrubber outlet',to:'Gas filter inlet',pts:[[1.3,0.4,-2.75],[1.615,0.4,-2.75]]},
@@ -36,4 +36,4 @@ export const VALVES=()=>[
   {medium:'gas',p:[4.2,0.75,-4.2],dir:[1,0,0]},
 ];
 // Food-waste route painted on the floor as arrows: [x,z] points.
-export const WASTE_FLOOR=()=>[[[6.1,1.45],[3.85,1.45]],[[3.05,2.0],[3.05,2.45],[2.55,2.45]]];
+export const WASTE_FLOOR=()=>[[[6.1,1.45],[3.78,1.45],[3.78,3.6]]];
