@@ -10,6 +10,11 @@ HOW TO OPEN
   View menu (roof, compound wall and trees start hidden so the plant is clear; tick them to show): show or hide the roof and columns, the compound wall and gate, trees and surroundings,
   and the kitchen. "Plant only" hides all four so the equipment and pipework are seen clearly.
 
+WHAT CHANGED IN v20
+  - Heater corrected: the separate heater tub is removed. The heater is the short inclined stub on the digester
+    shell beside the gas line; it is now clickable, its element shows inside in the see-inside view, and its
+    cable runs to it from the tray.
+
 WHAT CHANGED IN v19
   - Scrubbers: biogas enters each scrubber low on the side of the cylinder and leaves from the top
     (digester -> moisture scrubber bottom, top -> H2S scrubber bottom, top -> valve box).

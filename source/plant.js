@@ -220,23 +220,21 @@ export function buildPlant(root,scene){
       for(let k=0;k<3;k++){const a=k/3*Math.PI*2;const g=boxUV(.5,.02,.14);g.rotateX(.6);g.translate(.3,0,0);g.rotateY(a);g.translate(x,iy,z);bl.push(g)}
       const m=new THREE.Mesh(merge(bl),M.galv);agitatorG.add(m);internals.push(m)});}
   // ---- heating: electric heater tub on the shell at 3/4 of the height, heating elements reaching inside
+  // ---- heater: the inclined stub on the digester shell next to the gas line (part of the CAD model).
+  //      It is split out of the shell mesh so it can be picked, and its element continues inside the tank.
   const heaterG=new THREE.Group();heaterG.name='heater';plantG.add(heaterG);
-  const HEAT={a:Math.PI*0.3,y:0.1+0.75*(top-0.1)};
-  {const a=HEAT.a,R=1.503,ux=Math.cos(a),uz=Math.sin(a),P=(r,y,t=0)=>[cx+ux*r-uz*t,y,cz+uz*r+ux*t],y=HEAT.y;
-    const tubM=new THREE.MeshStandardMaterial({color:0xc2c7cc,metalness:.7,roughness:.35});
-    add(merge([rod(P(R-.01,y),P(R+.16,y),.11,28),rod(P(R+.14,y),P(R+.18,y),.17,32)]),tubM,heaterG);        // nozzle + flange
-    {const tb=new THREE.CylinderGeometry(.2,.2,.42,40);tb.rotateZ(Math.PI/2);tb.rotateY(-a);tb.translate(...P(R+.39,y));add(tb,tubM,heaterG)}   // heater tub
-    {const cap=new THREE.SphereGeometry(.2,32,16,0,Math.PI*2,0,Math.PI/2);cap.scale(1,.35,1);cap.rotateZ(-Math.PI/2);cap.rotateY(-a);cap.translate(...P(R+.6,y));add(cap,tubM,heaterG)}
-    add(boxUV(.16,.14,.1).rotateY(-a).translate(...P(R+.5,y+.24)),M.steelDark,heaterG);                       // junction box on top of the tub
-    // support brackets to the shell
-    add(merge([rod(P(R+.02,y-.35),P(R+.36,y-.2),.02,8),rod(P(R+.02,y-.35,.12),P(R+.36,y-.2,.12),.02,8),rod(P(R+.02,y-.35,-.12),P(R+.36,y-.2,-.12),.02,8)]),M.steelDark,heaterG);
-    // temperature sensor (thermowell + head) beside the tub
-    add(merge([rod(P(R-.01,y+.5,.35),P(R+.16,y+.5,.35),.02,10),new THREE.CylinderGeometry(.045,.045,.08,16).translate(...P(R+.2,y+.5,.35))]),M.galv,heaterG);
-    // heating elements inside: three U-bends glowing hot
+  const HEAT={x0:-.8,x1:-.47,y0:5.2,y1:5.66,z0:-.45,z1:-.25,inner:[-0.72,5.25,-0.35],outer:[-0.52,5.59,-0.35]};
+  {const inBox=c=>c.x>HEAT.x0&&c.x<HEAT.x1&&c.y>HEAT.y0&&c.y<HEAT.y1&&c.z>HEAT.z0&&c.z<HEAT.z1&&Math.hypot(c.x-cx,c.z-cz)>1.505;
+    dCut.forEach(m=>{const g=m.geometry;const stub=filterTris(g,c=>inBox(c)),rest=filterTris(g,c=>!inBox(c));
+      if(!stub.index||!stub.index.count)return;m.geometry=rest;const sm=new THREE.Mesh(stub,m.material);sm.castShadow=sm.receiveShadow=true;heaterG.add(sm)});
+    // element inside the digester, continuing the stub's axis inward and down
+    const I0=new THREE.Vector3(...HEAT.inner),O=new THREE.Vector3(...HEAT.outer),d=I0.clone().sub(O).normalize(),I=I0.clone().addScaledVector(d,.06),E=I.clone().addScaledVector(d,1.1);
     const hot=new THREE.MeshStandardMaterial({color:0x8a4a2a,metalness:.6,roughness:.4,emissive:0xff5a14,emissiveIntensity:.9});
-    const el=[];[-.07,0,.07].forEach(t=>{const L=1.0;el.push(rod(P(R,y+.04,t),P(R-L,y+.04,t),.012,8),rod(P(R,y-.04,t),P(R-L,y-.04,t),.012,8));
-      const c=new THREE.TorusGeometry(.04,.012,6,12,Math.PI);c.rotateZ(Math.PI/2);c.rotateY(-a);c.translate(...P(R-L,y,t));el.push(c)});
-    const em=new THREE.Mesh(merge(el),hot);heaterG.add(em);internals.push(em);}
+    const side=new THREE.Vector3().crossVectors(d,new THREE.Vector3(0,1,0)).normalize().multiplyScalar(.035);
+    const el=[rod(I.clone().add(side).toArray(),E.clone().add(side).toArray(),.012,8),rod(I.clone().sub(side).toArray(),E.clone().sub(side).toArray(),.012,8),new THREE.SphereGeometry(.045,12,8).translate(E.x,E.y,E.z)];
+    const em=new THREE.Mesh(merge(el),hot);heaterG.add(em);internals.push(em);
+    // terminal head and cable gland on the outer end
+    add(merge([new THREE.SphereGeometry(.03,12,8).translate(...HEAT.outer),new THREE.CylinderGeometry(.016,.018,.03,12).translate(HEAT.outer[0],HEAT.outer[1]+.03,HEAT.outer[2])]),M.galv,heaterG);}
 
   let tipBin=null,tipPose=null,tipCar=null,tipFill=null,tablePile=null,hopPile=null;const fallLumps=[],slideLumps=[];
   // ---- 8. food-waste entry: bins come in through the east gate, a bin tipper empties them onto the
@@ -475,14 +473,14 @@ export function buildPlant(root,scene){
     C([[comp[0],d,comp[2]],up(comp)]);                                                    // compressor
     [starter,dist,vfd].forEach(p=>C([[p[0],d,1.55],[p[0],2.1,1.55],[p[0],2.1,p[2]],up(p)]));   // panels up into the tray
     // digester heater junction box and agitator motor: riser from the top of the tray
-    {const a=Math.PI*.3,jx=DIG.cx+Math.cos(a)*2.003,jz=DIG.cz+Math.sin(a)*2.003,jy=HEAT.y+.24+.07;
-      C([[jx,Y+.045,1.55],[jx,jy+.25,1.55],[jx,jy+.25,jz],[jx,jy+.02,jz]]);
+    {const [jx,jy,jz]=HEAT.outer;
+      C([[jx,Y+.045,1.55],[jx,jy+.36,1.55],[jx,jy+.36,jz],[jx,jy+.06,jz]]);
       const ax=DIG.cx+.17,az=DIG.cz,ay=DIG.cut+.29+.6+.05;
       C([[-1.25,Y+.045,1.55],[-1.25,ay+.3,1.55],[-1.25,ay+.3,az],[ax,ay+.3,az],[ax,ay+.02,az]]);
       // clips holding the risers
-      [[jx,3.3,1.55],[jx,4.1,1.55],[-1.25,3.3,1.55],[-1.25,4.5,1.55],[-1.25,5.7,1.55]].forEach(p=>gl.push(new THREE.BoxGeometry(.03,.03,.03).translate(...p)));
+      [[jx,3.3,1.55],[jx,4.5,1.55],[jx,5.5,1.55],[-1.25,3.3,1.55],[-1.25,4.5,1.55],[-1.25,5.7,1.55]].forEach(p=>gl.push(new THREE.BoxGeometry(.03,.03,.03).translate(...p)));
       // riser support poles
-      T.length=0;add(merge([rod([-1.25,.1,1.62],[-1.25,ay+.3,1.62],.02,8),rod([-1.25,ay+.3,1.62],[-1.25,ay+.3,1.55],.012,6)]),M.galv,trayG);}
+      T.length=0;add(merge([rod([-1.25,.1,1.62],[-1.25,ay+.3,1.62],.02,8),rod([-1.25,ay+.3,1.62],[-1.25,ay+.3,1.55],.012,6),rod([jx,.1,1.62],[jx,jy+.36,1.62],.02,8),rod([jx,jy+.36,1.62],[jx,jy+.36,1.55],.012,6)]),M.galv,trayG);}
     add(merge(cond),new THREE.MeshStandardMaterial({color:0x1e2124,roughness:.55}),trayG);
     add(merge(gl),M.galv,trayG);}
 
