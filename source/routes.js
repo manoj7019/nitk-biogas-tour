@@ -17,16 +17,19 @@ export const ROUTES=({DIG})=>{
   {id:'S5',a:'pump2',b:'digester',medium:'slurry',from:'Feed pump 2 discharge',to:'Digester feed inlet',pts:[[-2.3,0.25,1.6],[-2.0,0.25,1.6],[-2.0,1.65,1.6],[-2.0,1.65,0.76]]},
   // ---- digestate (black HDPE) over the west wall into the collection pit
   {id:'D1',a:'digester',b:null,medium:'digestate',from:'Digester overflow',to:'Digestate pit (outside west wall)',pts:[[DIG.cx-DIG.r+0.02,1.6,DIG.cz],[-5.3,1.6,DIG.cz],[-5.3,0.2,DIG.cz]]},
-  // ---- biogas (yellow steel)
-  {id:'G1',a:null,b:'cage',medium:'gas',from:'Digester gas outlet (top of the side wall)',to:'Balloon cage',pts:[[DIG.cx+1.73,DIG.cut-.16,DIG.cz],[-0.3,DIG.cut-.16,DIG.cz],[-0.3,2.75,DIG.cz],[0.8,2.75,DIG.cz],[0.8,2.44,DIG.cz]]},
-  {id:'G2',a:'cage',b:'h2s',medium:'gas',from:'Balloon cage outlet',to:'H2S scrubber inlet',pts:[[0.4,0.55,-1.12],[0.4,0.55,-2.49]]},
-  {id:'G3',a:'h2s',b:'h2o',medium:'gas',from:'H2S scrubber outlet',to:'Moisture scrubber inlet',pts:[[0.4,1.23,-2.75],[0.4,1.48,-2.75],[1.05,1.48,-2.75],[1.05,1.23,-2.75]]},
-  {id:'G4',a:'h2o',b:'filter',medium:'gas',from:'Moisture scrubber outlet',to:'Gas filter inlet',pts:[[1.3,0.4,-2.75],[1.615,0.4,-2.75]]},
-  {id:'G5',a:'filter',b:'compressor',medium:'gas',from:'Gas filter outlet',to:'Compressor suction',pts:[[1.75,0.47,-2.75],[1.75,0.8,-2.75],[1.75,0.8,-0.1],[1.95,0.8,-0.1]]},
+  // ---- biogas (yellow steel): digester -> moisture scrubber -> H2S scrubber -> automatic valve box
+  //      -> twin balloons (production / flow measurement) -> valve box -> filter -> compressor -> storage
+  //      -> kitchen; valve box -> flare when the storage vessel is full
+  {id:'G1',a:null,b:'h2o',medium:'gas',from:'Digester gas outlet (top of the side wall)',to:'Moisture scrubber inlet',pts:[[DIG.cx+1.73,DIG.cut-.16,DIG.cz],[-0.3,DIG.cut-.16,DIG.cz],[-0.3,1.45,DIG.cz],[-0.3,1.45,-2.75],[0.25,1.45,-2.75],[0.25,1.2,-2.75]]},
+  {id:'G2',a:'h2o',b:'h2s',medium:'gas',from:'Moisture scrubber outlet',to:'H2S scrubber inlet',pts:[[0.25,1.2,-2.75],[0.25,1.5,-2.75],[0.9,1.5,-2.75],[0.9,1.2,-2.75]]},
+  {id:'G3',a:'h2s',b:'valve',medium:'gas',from:'H2S scrubber outlet',to:'Automatic valve box (gas in)',pts:[[1.18,0.5,-2.75],[1.3,0.5,-2.75],[1.3,0.5,-2.05],[1.6,0.5,-2.05]]},
+  {id:'B1',a:'valve',b:null,medium:'gas',from:'Automatic valve box',to:'Balloon 1 (upper)',pts:[[1.6,0.9,-1.3],[1.3,0.9,-1.3],[1.3,1.5,-1.3],[0.98,1.5,-1.3],[0.98,1.5,-1.17]]},
+  {id:'B2',a:null,b:'valve',medium:'gas',from:'Balloon 2 (lower)',to:'Automatic valve box',pts:[[0.98,0.72,-1.17],[0.98,0.72,-1.55],[1.6,0.72,-1.55]]},
+  {id:'G4',a:'valve',b:'filter',medium:'gas',from:'Automatic valve box (to compressor)',to:'Gas filter inlet',pts:[[1.74,0.35,-1.6],[2.06,0.35,-1.6]]},
+  {id:'G5',a:'filter',b:'compressor',medium:'gas',from:'Gas filter outlet',to:'Compressor suction',pts:[[2.06,0.47,-1.6],[2.06,0.8,-1.6],[2.06,0.8,-0.3]]},
   {id:'G6',a:'compressor',b:'storage',medium:'gas',from:'Compressor discharge',to:'Gas storage vessel inlet',pts:[[2.45,0.95,-0.43],[2.45,0.95,-1.12],[2.6,0.95,-1.38]]},
-  {id:'G7',a:'storage',b:null,medium:'gas',from:'Gas storage vessel outlet (top)',to:'Header tee outside north wall',pts:[[2.95,4.08,-2.1],[2.95,4.35,-2.1],[2.95,4.35,-4.2],T]},
-  {id:'G8',a:null,b:'flare',medium:'gas',from:'Header tee',to:'Flare stack (5 m)',pts:[T,[2.95,0.75,-5.38]]},
-  {id:'G9',a:null,b:null,medium:'gas',from:'Header tee',to:'Kitchen burner manifold',pts:[T,[4.96,0.75,-4.2],[4.96,0.75,-10.47],[8.4,0.75,-10.47]]},
+  {id:'G7',a:'storage',b:null,medium:'gas',from:'Gas storage vessel outlet (top)',to:'Kitchen burner manifold',pts:[[2.95,4.08,-2.1],[2.95,4.35,-2.1],[2.95,4.35,-4.2],[2.95,0.75,-4.2],[4.96,0.75,-4.2],[4.96,0.75,-10.47],[8.4,0.75,-10.47]]},
+  {id:'G8',a:'valve',b:'flare',medium:'gas',from:'Automatic valve box (excess gas)',to:'Flare stack (5 m)',pts:[[1.6,1.0,-2.2],[1.6,1.25,-2.2],[1.6,1.25,-4.45],[2.95,1.25,-4.45],[2.95,0.75,-4.45],[2.95,0.75,-5.38]]},
 ];};
 export const VALVES=()=>[
   {medium:'slurry',p:[-1.2,0.62,3.745],dir:[1,0,0]},

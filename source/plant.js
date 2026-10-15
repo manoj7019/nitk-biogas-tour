@@ -123,22 +123,16 @@ export function buildPlant(root,scene){
   {const a=Math.PI/3,cx=EQUIP.storage.to[0],cz=EQUIP.storage.to[1],u=[Math.cos(a),0,Math.sin(a)],P=r=>[cx+u[0]*r,0.95,cz+u[2]*r];   // spare nozzle, blanked off
     groups.storage.proc.add(add(merge([rod(P(.7),P(.86),.03,16),rod(P(.86),P(.885),.06,20)]),M.gasFl,groups.storage.proc))}
   if(mats.gas_bag){groups.cage.inner.add(balloon([3.165,0.69,0.32],[0.68,0.33,0.46],mats.gas_bag));groups.cage.inner.add(balloon([3.165,1.55,0.32],[0.68,0.33,0.46],mats.gas_bag))}
-  // balloon connections: gas in at the cage top -> upper balloon; upper -> lower balloon; lower balloon -> outlet (G2)
+  // twin balloons: each balloon has its own line to the automatic valve box (flanged nozzle + short hose to the cage face)
   {const cg=new THREE.Group();cg.name='cage_hoses';plantG.add(cg);groups.cage.proc=cg;
     const rub=M.gas,fit=M.gasFl;
     const hose=(pts,r=.022)=>{const c=new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p)),false,'centripetal');return add(new THREE.TubeGeometry(c,48,r,12,false),rub,cg)};
     const nozzle=(p,dir)=>{const d=new THREE.Vector3(...dir).normalize(),P=new THREE.Vector3(...p),q=P.clone().addScaledVector(d,.06);
       add(merge([rod(P.toArray(),q.toArray(),.028,14),rod(P.toArray(),P.clone().addScaledVector(d,.012).toArray(),.05,18),rod(q.clone().addScaledVector(d,-.015).toArray(),q.toArray(),.034,14)]),fit,cg);return q.toArray()};
-    // inlet: under the cage roof, where G1 comes in
-    const inTop=nozzle([0.8,2.36,-0.728],[0,-1,0]);
-    const upTop=nozzle([0.8,1.86,-0.5],[0,1,0]);
-    hose([inTop,[0.8,2.15,-0.74],[0.8,2.05,-0.55],upTop]);
-    // upper -> lower balloon, down the north side
     const upN=nozzle([0.98,1.5,-0.965],[0,0,-1]),loN=nozzle([0.98,0.72,-0.94],[0,0,-1]);
-    hose([upN,[0.98,1.4,-1.06],[0.98,1.1,-1.08],[0.98,0.82,-1.06],loN]);
-    // lower balloon -> outlet through the north face (start of G2)
-    const lo2=nozzle([0.6,0.7,-0.94],[0,0,-1]);
-    hose([lo2,[0.55,0.66,-1.03],[0.45,0.57,-1.04],[0.4,0.55,-1.06]]);}
+    hose([upN,[0.98,1.5,-1.1],[0.98,1.5,-1.17]]);hose([loN,[0.98,0.72,-1.08],[0.98,0.72,-1.17]]);
+    // bulkhead fittings where the lines pass through the cage mesh
+    add(merge([rod([0.98,1.5,-1.13],[0.98,1.5,-1.2],.04,16),rod([0.98,0.72,-1.13],[0.98,0.72,-1.2],.04,16)]),fit,cg);}
   plantG.updateMatrixWorld(true);
   // map an ORIGINAL-coordinate point of item k to the new world position
   function xf(k,p){const v=new THREE.Vector3(...p);return v.applyMatrix4(groups[k].inner.matrixWorld).toArray()}

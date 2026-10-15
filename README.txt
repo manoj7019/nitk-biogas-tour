@@ -9,6 +9,14 @@ HOW TO OPEN
   View menu (roof, compound wall and trees start hidden so the plant is clear; tick them to show): show or hide the roof and columns, the compound wall and gate, trees and surroundings,
   and the kitchen. "Plant only" hides all four so the equipment and pipework are seen clearly.
 
+WHAT CHANGED IN v18
+  - Biogas train re-routed to the real process: digester -> moisture scrubber -> H2S scrubber -> automatic
+    valve box -> twin balloons (production and flow measurement) -> valve box -> filter -> compressor ->
+    storage vessel -> kitchen. The flare is fed from the valve box when the storage vessel is full.
+  - The valve box is now the automatic gas valve box, standing beside the balloon cage with five connections
+    (gas in, balloon 1, balloon 2, to compressor, to flare). Each balloon has its own line to it.
+  - Tour stops 5 and 6 now follow the gas: scrubbers first, then valve box and balloons. Narration re-recorded.
+
 WHAT CHANGED IN v17
   - Cable tray: slimmer rails, rungs and posts, drawn see-through so the equipment below stays visible.
 
